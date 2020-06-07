@@ -13,5 +13,5 @@ private:
 
 public:
 	Repository(std::string _path);
-	void add(std::string _path, char* hashOut=nullptr);
+	std::array<char, 32> add(std::string _path);
 };

@@ -10,6 +10,7 @@
 #include <locale>
 #include <array>
 #include <memory>
+#include <Windows.h>
 
 #include "sqlite3.h"
 #include "util.h"
@@ -17,6 +18,7 @@
 #include "repository.h"
 #include "tag.h"
 #include "tag_parser.h"
+#include "path_pattern.h"
 
 /*
 Tag conventions:
@@ -410,50 +412,44 @@ int main(int argc, char* argv[])
 				return 1;
 			}
 
-			if (std::filesystem::is_directory(*arg_add_files))
-			{
-			}
-			else if (!std::filesystem::is_regular_file(*arg_add_files))
-			{
-				std::cerr << "\r\nThe file you're trying to add is not a regular file: " << *arg_add_file << "\r\n";
-				exit(1);
-				return 1;
-			}
-		
-			selected_repository->add(*arg_add_file, selected_file_hash.data());
+			std::shared_ptr<PathPattern> pathPattern = parsePathPattern(*arg_add_files);
+			
+			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes](const std::string& path){
+				if (!std::filesystem::is_regular_file(path))
+				{
+					std::cerr << "\r\nThe file you're trying to add is not a regular file: " << path << "\r\n";
+					exit(1);
+					return 1;
+				}
+				selected_file_hashes.push_back(selected_repository->add(path));
+			});
+			
+			//std::cout << bytes_to_hex(selected_file_hash) << "\r\n";
 
-			char hashHex[65];
-
-			bytes_to_hex(selected_file_hash, hashHex);
-
-			hashHex[64] = 0x00;
-
-			std::cout << hashHex << "\r\n";
-
-			file_selected = true;
+			//file_selected = true;
 		}
 
 
 
-		if (arg_file.has_value())
+		if (arg_files.has_value())
 		{
-			if (file_selected)
+			std::array<char, 32> hash;
+			for (int i=0; i<arg_files->length(); i++)
 			{
-				std::cerr << "\r\nCould not select file using --file; a file was already selected\r\n";
-				exit(1);
-				return 1;
+				char c = (*arg_files)[i];
+				if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
+				{
+					int amountBytes = hex_to_bytes(&arg_files->c_str()[i], hash);
+					if (amountBytes != 32)
+					{
+						throw "Arguments to --files must be 32 bytes hex values.";
+						exit(1);
+						return 1;
+					}
+					i += 64;
+					selected_file_hashes.push_back(hash);
+				}
 			}
-
-			int amountBytes = hex_to_bytes(arg_file->c_str(), selected_file_hash);
-		
-			if (amountBytes != 32)
-			{
-				std::cerr << "\r\nValue of --file must be 32 hexadecimal bytes\r\n";
-				exit(1);
-				return 1;
-			}
-
-			file_selected = true;
 		}
 
 
@@ -462,13 +458,13 @@ int main(int argc, char* argv[])
 
 
 		//////////////////////////////////////////////////////////
-		//// --add-tag
+		//// --add-tags
 
-		if (arg_add_tag.has_value())
+		if (arg_add_tags.has_value())
 		{
-			if (!file_selected)
+			if (selected_file_hashes.size() == 0)
 			{
-				std::cerr << "\r\nTo use --add-tag, a file must be selected (using --add-file or --file)\r\n";
+				std::cerr << "\r\nTo use --add-tags, at least one file must be selected (using --add-files or --files)\r\n";
 				exit(1);
 				return 1;
 			}
@@ -480,13 +476,14 @@ int main(int argc, char* argv[])
 				return 1;
 			}
 
-			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tag);
+			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
 
 			q(tagbase_db, "BEGIN TRANSACTION");
 
-			for (auto tag : tags)
+			for (const auto& file_hash : selected_file_hashes)
+			for (const auto& tag : tags)
 			{
-				tag->addTo(selected_file_hash, ZERO_HASH, selected_file_hash, tagbase_db, true);
+				tag->addTo(file_hash, ZERO_HASH, file_hash, tagbase_db, true);
 			}
 
 			q(tagbase_db, "COMMIT");
@@ -497,29 +494,30 @@ int main(int argc, char* argv[])
 
 
 		//////////////////////////////////////////////////////////
-		//// --remove-tag
+		//// --remove-tags
 
-		if (arg_remove_tag.has_value())
+		if (arg_remove_tags.has_value())
 		{
-			if (!file_selected)
+			if (selected_file_hashes.size() == 0)
 			{
-				std::cerr << "\r\nTo use --remove-tag, a file must be selected (using --file)\r\n";
+				std::cerr << "\r\nTo use --remove-tags, a file must be selected (using --files)\r\n";
 				exit(1);
 				return 1;
 			}
 
 			if (tagbase_db == nullptr)
 			{
-				std::cerr << "\r\nTo use --remove-tag, a tagbase must be selected\r\n";
+				std::cerr << "\r\nTo use --remove-tags, a tagbase must be selected\r\n";
 				exit(1);
 				return 1;
 			}
 
-			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tag);
+			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
 
+			for (const auto& file_hash : selected_file_hashes)
 			for (auto tag : tags)
 			{
-				tag->removeFrom(selected_file_hash, tagbase_db);
+				tag->removeFrom(file_hash, tagbase_db);
 			}
 		}
 

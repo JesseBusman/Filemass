@@ -3,83 +3,47 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <functional>
+
+// aa/bb/cc.txt --> PathPattern_DirectoriesThatMatch[aa] => PathPattern_DirectoriesThatMatch[bb] => PathPattern_FilesThatMatch[cc.txt]
 
 class PathPattern
 {
-	virtual void findFiles(const std::string& baseDirectory, void (*callback)(const std::string& path));
-};
-
-class PathPattern_DirectoriesThatMatch : public PathPattern
-{
 public:
-
+	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
 };
 
 class PathPattern_DirectoriesThatMatch : public PathPattern
 {
 public:
 	std::string str;
-	int amountOfWildcardsInStr;
-	std::shared_ptr<PathPattern> pattern;
-	PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _pattern):
-		str(_str), pattern(_pattern)
-	{
-		amountOfWildcardsInStr = 0;
-		for (int i=0; i<str.length(); i++)
-		{
-			if (str[i] == '*') amountOfWildcardsInStr++;
-		}
-	}
-	virtual void findFiles(const std::string& baseDirectory, void (*callback)(const std::string& path));
+	std::shared_ptr<PathPattern> subPattern;
+	PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern);
+	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
 };
 
 class PathPattern_Union : public PathPattern
 {
 public:
 	std::vector<std::shared_ptr<PathPattern>> patterns;
-	PathPattern_Union(const std::vector<std::shared_ptr<PathPattern>>& _patterns):
-		patterns(_patterns)
-	{
-	}
-	virtual void findFiles(const std::string& baseDirectory, void (*callback)(const std::string& path));
+	PathPattern_Union(std::vector<std::shared_ptr<PathPattern>>&& _patterns);
+	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
 };
 
 class PathPattern_FilesThatMatch : public PathPattern
 {
 public:
 	std::string str;
-	int amountOfWildcardsInStr;
-	PathPattern_FilesThatMatch(const std::string& _str):
-		str(_str)
-	{
-		amountOfWildcardsInStr = 0;
-		for (int i=0; i<str.length(); i++)
-		{
-			if (str[i] == '*') amountOfWildcardsInStr++;
-		}
-	}
-	virtual void findFiles(const std::string& baseDirectory, void (*callback)(const std::string& path));
+	PathPattern_FilesThatMatch(const std::string& _str);
+	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
 };
 
 class PathPattern_AlsoCheckSubDirectoriesRecursively : public PathPattern
 {
 public:
-	virtual void findFiles(const std::string& baseDirectory, void (*callback)(const std::string& path));
+	std::shared_ptr<PathPattern> subPattern;
+	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
+	PathPattern_AlsoCheckSubDirectoriesRecursively(std::shared_ptr<PathPattern> _subPattern);
 };
 
-std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern)
-{
-
-	std::shared_ptr<PathPattern> currentPatternBase = nullptr;
-	std::shared_ptr<PathPattern> currentPattern = nullptr;
-	std::string buffer = "";
-	for (int i=0; i<pattern.length; i++)
-	{
-		char c = pattern[i];
-		if (currentPatternBase == nullptr)
-		{
-
-		}
-	}
-	
-}
+std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern);

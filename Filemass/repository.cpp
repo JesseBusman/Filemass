@@ -52,7 +52,7 @@ Repository::Repository(std::string _path) :
 	}
 }
 
-void Repository::add(std::string _path, char* hashOut)
+std::array<char, 32> Repository::add(std::string _path)
 {
 	if (!std::filesystem::exists(_path)) { std::cout << "\r\nFile does not exist: " << _path << "\r\n"; exit(1); throw 1; }
 	if (!std::filesystem::is_regular_file(_path)) { std::cout << "\r\nFile is not a regular file: " << _path << "\r\n"; exit(1); throw 1; }
@@ -82,36 +82,29 @@ void Repository::add(std::string _path, char* hashOut)
 	}
 	file.close();
 
-	char hash[32];
+	std::array<char, 32> hash;
 	//hasher.final((unsigned char*)&hash[0]);
 	merkelTree.finalize();
 	//memcpy(hash, merkelTree.hash, 32);
 	for (int i = 0; i < 32; i++) hash[i] = merkelTree.hash[i];
-
-	if (hashOut != nullptr)
-	{
-		for (int i = 0; i < 32; i++) hashOut[i] = hash[i];
-	}
-
-	char hashHex[64];
-
-	bytes_to_hex(hash, 32, hashHex);
+	
+	std::string hashHex = bytes_to_hex(hash);
 
 	std::string destPath = path;
 
-	destPath += "/" + std::string(&hashHex[0], 2);
+	destPath += "/" + hashHex.substr(0, 2);
 	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
 	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
 
-	destPath += "/" + std::string(&hashHex[2], 2);
+	destPath += "/" + hashHex.substr(2, 2);
 	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
 	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
 
-	destPath += "/" + std::string(&hashHex[4], 2);
+	destPath += "/" + hashHex.substr(4, 2);
 	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
 	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
 
-	destPath += "/" + std::string(&hashHex[0], 64);
+	destPath += "/" + hashHex;
 	if (std::filesystem::exists(destPath))
 	{
 		if (std::filesystem::file_size(destPath) == std::filesystem::file_size(_path))
@@ -126,4 +119,6 @@ void Repository::add(std::string _path, char* hashOut)
 		}
 	}
 	else if (!std::filesystem::copy_file(_path, destPath)) { std::cout << "\r\nFailed to copy file " << _path << " to " << destPath << "\r\n"; exit(1); throw 1; }
+
+	return hash;
 }
