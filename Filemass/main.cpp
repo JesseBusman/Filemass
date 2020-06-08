@@ -391,28 +391,15 @@ int main(int argc, char* argv[])
 
 
 		/////////////////////////////////////////////////////
-		//// --add-file
+		//// --add-files
 
 		std::vector<std::array<char, 32>> selected_file_hashes;
 	
 		if (arg_add_files.has_value())
 		{
-			if (arg_files.has_value())
-			{
-				std::cerr << "\r\nCannot use both --add-files and --files\r\n";
-				exit(1);
-				return 1;
-			}
-
-
-			if (!std::filesystem::exists(*arg_add_files))
-			{
-				std::cerr << "\r\nThe file path you're trying to add does not exist: " << *arg_add_files << "\r\n";
-				exit(1);
-				return 1;
-			}
-
 			std::shared_ptr<PathPattern> pathPattern = parsePathPattern(*arg_add_files);
+
+			std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
 			
 			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
@@ -423,10 +410,6 @@ int main(int argc, char* argv[])
 				}
 				selected_file_hashes.push_back(selected_repository->add(path));
 			});
-			
-			//std::cout << bytes_to_hex(selected_file_hash) << "\r\n";
-
-			//file_selected = true;
 		}
 
 
