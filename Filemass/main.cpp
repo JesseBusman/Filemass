@@ -283,6 +283,17 @@ int main(int argc, char* argv[])
 			
 
 
+			q(
+				tagbase_db,
+				"CREATE TABLE hashed_data"
+				"("
+				"	hash BLOB NOT NULL PRIMARY KEY,"
+				"	data BLOB NOT NULL"
+				")"
+			);
+
+
+
 			/*
 			q(
 				tagbase_db,

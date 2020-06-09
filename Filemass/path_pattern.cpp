@@ -5,8 +5,8 @@
 
 #include "path_pattern.h"
 
-PathPattern_DirectoriesThatMatch::PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern):
-	str(_str), subPattern(_subPattern)
+PathPattern_DirectoriesThatMatch::PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern, bool _absolutePath):
+	str(_str), subPattern(_subPattern), absolutePath(_absolutePath)
 {
 }
 
@@ -81,14 +81,35 @@ void PathPattern::findFiles(const std::string& baseDirectory, std::function<void
 
 void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
 {
-	for (const auto& entry : std::filesystem::directory_iterator(baseDirectory))
+	std::cout << "PathPattern_DirectoriesThatMatch(" << baseDirectory << ")\r\n";
+	if (this->absolutePath)
 	{
-		if (!entry.is_directory()) continue;
-
-		const std::string& dir = entry.path().filename().string();
-		if (pathSegment_matches_patternSegment(dir, this->str))
+		std::cout << this->str << " is an absolute path!\r\n";
+		this->subPattern->findFiles(this->str, callback);
+	}
+	else
+	{
+		if (!std::filesystem::exists(baseDirectory))
 		{
-			this->subPattern->findFiles(baseDirectory + "/" + dir, callback);
+			std::cerr << "Directory " << baseDirectory << " does not exist!\r\n";
+			return;
+		}
+
+		if (!std::filesystem::is_directory(baseDirectory))
+		{
+			std::cerr << baseDirectory << " is not a directory!\r\n";
+			return;
+		}
+		
+		for (const auto& entry : std::filesystem::directory_iterator(baseDirectory))
+		{
+			if (!entry.is_directory()) continue;
+
+			const std::string& dir = entry.path().filename().string();
+			if (pathSegment_matches_patternSegment(dir, this->str))
+			{
+				this->subPattern->findFiles(baseDirectory + "/" + dir, callback);
+			}
 		}
 	}
 }
@@ -104,6 +125,19 @@ void PathPattern_Union::findFiles(const std::string& baseDirectory, std::functio
 void PathPattern_FilesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
 {
 	std::cout << "PathPattern_FilesThatMatch::findFiles(" << baseDirectory << ") on " << this->str << "\r\n";
+
+	if (!std::filesystem::exists(baseDirectory))
+	{
+		std::cerr << "Directory " << baseDirectory << " does not exist!\r\n";
+		return;
+	}
+
+	if (!std::filesystem::is_directory(baseDirectory))
+	{
+		std::cerr << baseDirectory << " is not a directory!\r\n";
+		return;
+	}
+	
 	for (const auto& entry : std::filesystem::directory_iterator(baseDirectory))
 	{
 		if (!entry.is_regular_file()) continue;
@@ -146,37 +180,58 @@ std::string readPatternPathSegment(const std::string& str, int& pos)
 	return str.substr(startPos, pos-startPos);
 }
 
-std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos)
+std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos, bool isFirstSegment)
 {
 	std::cout << "_parsePathPattern(" << str.substr(pos) << ")\r\n";
 
 	bool absolutePath = false;
 	std::string absolutePathPrefix;
-
-	if (str[pos] == '/')
+	
+	if (isFirstSegment)
 	{
-		absolutePath = true;
-		absolutePathPrefix = "/";
-		pos++;
-	}
+		if (str[pos] == '/')
+		{
+			absolutePath = true;
+			absolutePathPrefix = str[pos];
+			pos++;
+		}
+		else
+		{
+			absolutePathPrefix = readPatternPathSegment(str, pos);
+			std::cout << "absolutePathPrefix=" << absolutePathPrefix << "\r\n";
+			if (str[pos] == '/' || str[pos] == '\\')
+			{
+				pos++;
+			}
+			else
+			{
+				throw std::string("Expected / or \\, found '") + str[pos] + "'";
+			}
 
-	if (str[pos+1] == ':' && (str[pos+2] == '/' || str[pos+2] == '\\'))
-	{
-		absolutePath = true;
-		absolutePathPrefix = str.substr(0, 3);
-		pos += 3;
+			if (std::filesystem::path(absolutePathPrefix + "/").is_absolute())
+			{
+				std::cout << "'" << absolutePathPrefix << "' is absolute!\r\n";
+				absolutePath = true;
+			}
+			else
+			{
+				std::cout << "'" << absolutePathPrefix << "' is not absolute!\r\n";
+				pos--;
+			}
+		}
 	}
 
 	std::string patternSegment = readPatternPathSegment(str, pos);
 
-
+	
+	
 	/*
 	/hello
 	hello
 	*/
 	if (pos == str.length() || str[pos] == ',')
 	{
-		if (absolutePath) return std::make_shared<PathPattern_DirectoriesThatMatch>(absolutePathPrefix, std::make_shared<PathPattern_FilesThatMatch>(patternSegment));
+		if (absolutePath) return std::make_shared<PathPattern_DirectoriesThatMatch>(absolutePathPrefix, std::make_shared<PathPattern_FilesThatMatch>(patternSegment), true);
 		else return std::make_shared<PathPattern_FilesThatMatch>(patternSegment);
 	}
 	else
@@ -195,10 +250,10 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos)
 				isRecursiveSearch = true;
 				
 			}
-			std::shared_ptr<PathPattern> sub = _parsePathPattern(str, pos);
+			std::shared_ptr<PathPattern> sub = _parsePathPattern(str, pos, false);
 			if (isRecursiveSearch) sub = std::make_shared<PathPattern_AlsoCheckSubDirectoriesRecursively>(sub);
-			if (absolutePath) return std::make_shared<PathPattern_DirectoriesThatMatch>(absolutePathPrefix + patternSegment, sub);
-			else return std::make_shared<PathPattern_DirectoriesThatMatch>(patternSegment, sub);
+			if (absolutePath) return std::make_shared<PathPattern_DirectoriesThatMatch>(absolutePathPrefix + "/" + patternSegment, sub, true);
+			else return std::make_shared<PathPattern_DirectoriesThatMatch>(patternSegment, sub, false);
 		}
 		else
 		{
@@ -215,7 +270,7 @@ std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern)
 	int pos = 0;
 	while (true)
 	{
-		patterns.push_back(_parsePathPattern(pattern, pos));
+		patterns.push_back(_parsePathPattern(pattern, pos, true));
 		if (pos >= pattern.length()) break;
 		if (pattern[pos] != ',') throw "Unexpected char in pattern " + pattern + " " + pattern[pos];
 		pos++;

@@ -17,9 +17,10 @@ public:
 class PathPattern_DirectoriesThatMatch : public PathPattern
 {
 public:
+	bool absolutePath;
 	std::string str;
 	std::shared_ptr<PathPattern> subPattern;
-	PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern);
+	PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern, bool _absolutePath);
 	virtual void findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback);
 	virtual std::string toString();
 };

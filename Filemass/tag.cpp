@@ -166,6 +166,31 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 
 	std::cout << bytes_to_hex(*thisHash) << "->addTo(" << bytes_to_hex(destParentHashSum) << ")\r\n";
 
+	if (this->name->length() < 65536)
+	{
+		sqlite3_stmt* stmt = p(
+			tagbase_db,
+			"INSERT OR IGNORE INTO hashed_data (hash, data) VALUES(?, ?)"
+		);
+
+		sqlite3_bind_blob(stmt, 1, this->thisHash->data(), 32, SQLITE_STATIC);
+		sqlite3_bind_blob(stmt, 2, this->name->data(), this->name->length(), SQLITE_STATIC);
+		
+		int stepResult = sqlite3_step(stmt);
+
+		if (stepResult != SQLITE_DONE)
+		{
+			std::cout << "\r\n" << stepResult;
+			std::cout << "\r\nsqlite3_step did not return SQLITE_DONE on query INSERT INTO hashed_data\r\n";
+			std::cout << sqlite3_errmsg(tagbase_db) << "\r\n";
+			exit(1);
+			throw 1;
+		}
+	}
+
+
+
+
 	sqlite3_stmt* stmt = p(
 		tagbase_db,
 		"INSERT OR IGNORE INTO edges (parent_hash_sum, _this_hash, hash_sum, _file_hash, _grandparent_hash_sum) VALUES(?, ?, ?, ?, ?)"
