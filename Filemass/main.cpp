@@ -19,6 +19,7 @@
 #include "tag.h"
 #include "tag_parser.h"
 #include "path_pattern.h"
+#include "json.h"
 
 /*
 Tag conventions:
@@ -27,9 +28,23 @@ photo of 2 people (1 known, 1 unknown wearing an AC/DC t-shirt) standing in fron
 photo,person[name[Jesse Busman]],person[clothing[shirt[AC/DC]]],castle
 */
 
+bool arg_debug = false;
+bool arg_json = false;
+JsonValue_Map jsonOutput;
+
 void exitWithError(const char* errorMessage)
 {
-	std::cerr << errorMessage << "\r\n";
+	if (arg_json)
+	{
+		jsonOutput.map["error"] = std::make_shared<JsonValue_String>(errorMessage);
+		std::stringstream str;
+		jsonOutput.write(str);
+		std::cout << str.rdbuf();
+	}
+	else
+	{
+		std::cerr << errorMessage << "\r\n";
+	}
 	exit(1);
 }
 
@@ -38,6 +53,7 @@ void exitWithError(const std::string& errorMessage)
 	exitWithError(errorMessage.c_str());
 }
 
+/*
 void exitWithErrorIfQueryFailed(int sqliteReturnCode)
 {
 	if (sqliteReturnCode != SQLITE_DONE && sqliteReturnCode != SQLITE_OK)
@@ -45,6 +61,7 @@ void exitWithErrorIfQueryFailed(int sqliteReturnCode)
 
 	}
 }
+*/
 
 int main(int argc, char* argv[])
 {
@@ -88,7 +105,8 @@ int main(int argc, char* argv[])
 		std::optional<std::string> arg_add_tags;
 		std::optional<std::string> arg_remove_tags;
 		
-		bool arg_json = false;
+		arg_json = false;
+		arg_debug = false;
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
 
@@ -118,6 +136,10 @@ int main(int argc, char* argv[])
 			if (field == "json")
 			{
 				arg_json = true;
+			}
+			else if (field == "debug")
+			{
+				arg_debug = true;
 			}
 			else if (field == "add-files")
 			{
@@ -168,6 +190,15 @@ int main(int argc, char* argv[])
 				exitWithError("Unknown command line argument " + field);
 			}
 		}
+		
+
+
+
+
+		
+
+
+
 
 
 		//////////////////////////
@@ -202,10 +233,17 @@ int main(int argc, char* argv[])
 			outfile.flush();
 			outfile.close();
 
-			std::cout << "Initialized repository at " << selected_repository_path << "\r\n";
+			if (arg_json)
+			{
+				jsonOutput.set("initialized_repository", selected_repository_path);
+			}
+			else
+			{
+				std::cout << "Initialized repository at " << selected_repository_path << "\r\n";
+			}
 		}
 
-	
+		
 
 		//////////////////////////////////////
 		//// --repo
@@ -407,7 +445,7 @@ int main(int argc, char* argv[])
 		{
 			std::shared_ptr<PathPattern> pathPattern = parsePathPattern(*arg_add_files);
 
-			std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
+			if (arg_debug) std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
 			
 			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
@@ -519,13 +557,37 @@ int main(int argc, char* argv[])
 			
 			std::map<std::array<char, 32>, bool> fileHashes;
 			tagQuery->findIn(ZERO_HASH, fileHashes, tagbase_db);
-
-			std::cout << "Found " << fileHashes.size() << " files:\r\n";
-
-			for (auto const& [fileHash, _] : fileHashes)
+			
+			if (arg_json)
 			{
-				std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
-				std::cout << tags->toString() << "\r\n";
+				auto filesArray = std::make_shared<JsonValue_Array>();
+
+				for (auto const& [fileHash, _] : fileHashes)
+				{
+					auto file = std::make_shared<JsonValue_Map>();
+					file->set("hash", bytes_to_hex(fileHash));
+
+					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
+					auto tagsArray = std::make_shared<JsonValue_Array>();
+					for (auto tag : tags->subtags)
+					{
+						tagsArray->array.push_back(tag->toJSON());
+					}
+					file->set("tags", tagsArray);
+					filesArray->array.push_back(file);
+				}
+
+				jsonOutput.set("files", filesArray);
+			}
+			else
+			{
+				std::cout << "Found " << fileHashes.size() << " files:\r\n";
+
+				for (auto const& [fileHash, _] : fileHashes)
+				{
+					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
+					std::cout << tags->toString() << "\r\n";
+				}
 			}
 		}
 
@@ -536,6 +598,14 @@ int main(int argc, char* argv[])
 		{
 			sqlite3_close(tagbase_db);
 		}
+
+		if (arg_json)
+		{
+			std::stringstream str;
+			jsonOutput.write(str);
+			std::cout << str.rdbuf();
+		}
+
 		return 0;
 	}
 	catch (const char* errorMessage)

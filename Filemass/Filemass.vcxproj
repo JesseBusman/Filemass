@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="json.cpp" />
     <ClCompile Include="merkel_tree.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="path_pattern.cpp" />
@@ -150,6 +151,7 @@
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="json.h" />
     <ClInclude Include="merkel_tree.h" />
     <ClInclude Include="path_pattern.h" />
     <ClInclude Include="repository.h" />

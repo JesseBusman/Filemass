@@ -42,6 +42,9 @@
     <ClCompile Include="path_pattern.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="json.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sqlite3.h">
@@ -69,6 +72,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="path_pattern.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="json.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

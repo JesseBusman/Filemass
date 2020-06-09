@@ -7,6 +7,8 @@
 #include <map>
 #include <optional>
 
+class JsonValue_Map;
+
 struct sqlite3;
 
 class Tag
@@ -25,6 +27,7 @@ public:
 	void addTo(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& destGrandParentHashSum, const std::array<char, 32>& destFileHash, sqlite3* tagbase_db, bool insideTransaction);
 	void removeFrom(const std::array<char, 32>& parentHashSum, sqlite3* tagbase_db);
 	std::string toString();
+	std::shared_ptr<JsonValue_Map> toJSON(); 
 };
 
 std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite3* tagbase_db);

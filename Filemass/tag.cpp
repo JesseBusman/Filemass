@@ -10,6 +10,7 @@
 #include "util.h"
 #include "sqlite3.h"
 #include "tag.h"
+#include "json.h"
 
 std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite3* tagbase_db)
 {
@@ -106,6 +107,25 @@ std::string Tag::toString()
 		ret += ']';
 	}
 	return ret;
+}
+
+std::shared_ptr<JsonValue_Map> Tag::toJSON()
+{
+	std::shared_ptr<JsonValue_Map> map = std::make_shared<JsonValue_Map>();
+	if (this->name.has_value()) map->set("name", *this->name);
+	else if (this->thisHash.has_value()) map->set("hash", bytes_to_hex(*this->thisHash));
+	else throw 123;
+
+	if (this->subtags.size() >= 1)
+	{
+		std::shared_ptr<JsonValue_Array> array = std::make_shared<JsonValue_Array>();
+		for (auto subtag : this->subtags)
+		{
+			array->array.push_back(subtag->toJSON());
+		}
+		map->set("subtags", array);
+	}
+	return map;
 }
 
 void Tag::debugPrint(int depth)
