@@ -16,10 +16,10 @@ public:
 	std::optional<std::array<char, 32>> hashSum;
 	std::optional<std::array<char, 32>> thisHash;
 	std::optional<std::array<char, 32>> fileHash;
-	std::optional<std::string_view> name;
+	std::optional<std::string> name;
 	std::vector<std::shared_ptr<Tag>> subtags;
 
-	Tag(std::string_view _name);
+	Tag(const std::string& _name);
 	Tag(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& hashSum, const std::array<char, 32>& thisHash, const std::array<char, 32>& fileHash);
 	void debugPrint(int depth=0);
 	void addTo(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& destGrandParentHashSum, const std::array<char, 32>& destFileHash, sqlite3* tagbase_db, bool insideTransaction);
@@ -88,39 +88,39 @@ class TagQuery_HasTag : public TagQuery
 {
 public:
 	std::array<char, 32> hash;
-	std::string_view tagName;
-	TagQuery_HasTag(TagQueryType _type, const std::string_view& _tagName);
+	std::string tagName;
+	TagQuery_HasTag(TagQueryType _type, const std::string& _tagName);
 };
 
 class TagQuery_HasChildTag : public TagQuery_HasTag
 {
 public:
-	TagQuery_HasChildTag(const std::string_view& _tagName);
+	TagQuery_HasChildTag(const std::string& _tagName);
 	virtual std::string toString();
 };
 
 class TagQuery_HasDescendantTag : public TagQuery_HasTag
 {
 public:
-	std::string_view tagName;
-	TagQuery_HasDescendantTag(const std::string_view& _tagName);
+	std::string tagName;
+	TagQuery_HasDescendantTag(const std::string& _tagName);
 	virtual std::string toString();
 };
 
 class TagQuery_HasChildTagWithQuery : public TagQuery_HasTag
 {
 public:
-	std::string_view tagName;
+	std::string tagName;
 	std::shared_ptr<TagQuery> query;
-	TagQuery_HasChildTagWithQuery(const std::string_view& _tagName, const std::shared_ptr<TagQuery>& _query);
+	TagQuery_HasChildTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
 	virtual std::string toString();
 };
 
 class TagQuery_HasDescendantTagWithQuery : public TagQuery_HasTag
 {
 public:
-	std::string_view tagName;
+	std::string tagName;
 	std::shared_ptr<TagQuery> query;
-	TagQuery_HasDescendantTagWithQuery(const std::string_view& _tagName, const std::shared_ptr<TagQuery>& _query);
+	TagQuery_HasDescendantTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
 	virtual std::string toString();
 };

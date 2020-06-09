@@ -42,7 +42,7 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 			std::shared_ptr<Tag> newTag;
 			if (currentTagNameLength != -1)
 			{
-				newTag = std::make_shared<Tag>(std::string_view(&str.c_str()[currentTagNameStart], currentTagNameLength));
+				newTag = std::make_shared<Tag>(str.substr(currentTagNameStart, currentTagNameLength)); //std::string_view(&str.c_str()[currentTagNameStart], currentTagNameLength));
 				stack[stack.size()-1]->subtags.push_back(newTag);
 				//std::cout << "after_tag_name newTag=" << newTag->name << " c=" << c << "\r\n";
 
@@ -84,7 +84,7 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 	return baseTag->subtags;
 }
 
-std::string_view readTagName(const std::string& str, int& pos)
+std::string readTagName(const std::string& str, int& pos)
 {
 	//std::cout << "readTagName(" << str.substr(pos) << ")\r\n";
 
@@ -117,7 +117,7 @@ std::string_view readTagName(const std::string& str, int& pos)
 
 	//std::cout << "end: startPos=" << startPos << " lastNonWhitespace=" << lastNonWhitespace << "\r\n";
 
-	return std::string_view(&str.c_str()[startPos], lastNonWhitespace - startPos + 1);
+	return str.substr(startPos, lastNonWhitespace - startPos + 1); //std::string_view(&str.c_str()[startPos], lastNonWhitespace - startPos + 1);
 }
 
 void skipWhitespace(const std::string& str, int& pos)
@@ -195,7 +195,7 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 			skipWhitespace(str, pos);
 		}
 		
-		std::string_view tagName = readTagName(str, pos);
+		std::string tagName = readTagName(str, pos);
 
 		skipWhitespace(str, pos);
 		

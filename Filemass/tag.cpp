@@ -77,7 +77,7 @@ Tag::Tag(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& 
 {
 }
 
-Tag::Tag(std::string_view _name):
+Tag::Tag(const std::string& _name):
 	name(_name)
 {
 	thisHash.emplace(ZERO_HASH);
@@ -174,7 +174,7 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 		);
 
 		sqlite3_bind_blob(stmt, 1, this->thisHash->data(), 32, SQLITE_STATIC);
-		sqlite3_bind_blob(stmt, 2, this->name->data(), this->name->length(), SQLITE_STATIC);
+		sqlite3_bind_blob(stmt, 2, this->name->c_str(), this->name->length(), SQLITE_STATIC);
 		
 		int stepResult = sqlite3_step(stmt);
 
@@ -575,7 +575,7 @@ TagQuery_Not::TagQuery_Not(const std::shared_ptr<TagQuery>& _subQuery):
 {
 }
 
-TagQuery_HasTag::TagQuery_HasTag(TagQueryType _type, const std::string_view& _tagName):
+TagQuery_HasTag::TagQuery_HasTag(TagQueryType _type, const std::string& _tagName):
 	TagQuery(_type),
 	tagName(_tagName)
 {
@@ -585,23 +585,23 @@ TagQuery_HasTag::TagQuery_HasTag(TagQueryType _type, const std::string_view& _ta
 	ctx.final((unsigned char*)this->hash.data());
 }
 
-TagQuery_HasChildTag::TagQuery_HasChildTag(const std::string_view& _tagName):
+TagQuery_HasChildTag::TagQuery_HasChildTag(const std::string& _tagName):
 	TagQuery_HasTag(TagQueryType::HAS_CHILD, _tagName)
 {
 }
 
-TagQuery_HasDescendantTag::TagQuery_HasDescendantTag(const std::string_view& _tagName):
+TagQuery_HasDescendantTag::TagQuery_HasDescendantTag(const std::string& _tagName):
 	TagQuery_HasTag(TagQueryType::HAS_DESCENDANT, _tagName)
 {
 }
 
-TagQuery_HasChildTagWithQuery::TagQuery_HasChildTagWithQuery(const std::string_view& _tagName, const std::shared_ptr<TagQuery>& _query):
+TagQuery_HasChildTagWithQuery::TagQuery_HasChildTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query):
 	TagQuery_HasTag(TagQueryType::HAS_CHILD_WITH_QUERY, _tagName),
 	query(_query)
 {
 }
 
-TagQuery_HasDescendantTagWithQuery::TagQuery_HasDescendantTagWithQuery(const std::string_view& _tagName, const std::shared_ptr<TagQuery>& _query):
+TagQuery_HasDescendantTagWithQuery::TagQuery_HasDescendantTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query):
 	TagQuery_HasTag(TagQueryType::HAS_DESCENDANT_WITH_QUERY, _tagName),
 	query(_query)
 {
