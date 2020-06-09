@@ -19,7 +19,7 @@ std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite
 
 	sqlite3_stmt* stmt = p(
 		tagbase_db,
-		"SELECT parent_hash_sum, hash_sum, _this_hash FROM edges WHERE _file_hash=?"
+		"SELECT e.parent_hash_sum, e.hash_sum, e._this_hash, hd.data FROM edges AS e LEFT JOIN hashed_data AS hd ON e._this_hash=hd.hash WHERE e._file_hash=?"
 	);
 	sqlite3_bind_blob(stmt, 1, fileHash.data(), 32, SQLITE_STATIC);
 	int stepResult;
@@ -35,8 +35,11 @@ std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite
 		std::array<char, 32> parent_hash_sum = sqlite3_column_32chars(stmt, 0);
 		std::array<char, 32> hash_sum = sqlite3_column_32chars(stmt, 1);
 		std::array<char, 32> _this_hash = sqlite3_column_32chars(stmt, 2);
+		std::string tag_name = std::string((const char*)sqlite3_column_blob(stmt, 3), sqlite3_column_bytes(stmt, 3));
 		
 		auto tag = std::make_shared<Tag>(parent_hash_sum, hash_sum, _this_hash, fileHash);
+		tag->name = tag_name;
+
 		if (parent_hash_sum == fileHash)
 		{
 			ret->subtags.push_back(tag);
@@ -84,6 +87,25 @@ Tag::Tag(const std::string& _name):
 	SHA256 hasher;
 	hasher.update((const unsigned char*)_name.data(), _name.length());
 	hasher.final((unsigned char*)thisHash->data());
+}
+
+std::string Tag::toString()
+{
+	std::string ret;
+	if (this->name.has_value()) ret = *this->name;
+	else if (this->thisHash.has_value()) ret = bytes_to_hex(*this->thisHash);
+	else ret = "??";
+	if (this->subtags.size() >= 1)
+	{
+		ret += '[';
+		for (int i=0; i<this->subtags.size(); i++)
+		{
+			if (i != 0) ret += ',';
+			ret += this->subtags[i]->toString();
+		}
+		ret += ']';
+	}
+	return ret;
 }
 
 void Tag::debugPrint(int depth)
@@ -392,7 +414,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 	{
 		if (parentHashSum == ZERO_HASH)
 		{
-			std::array<char, 32> searchHash = ((TagQuery_HasChildTag*)this)->hash;
+			std::array<char, 32> searchHash = ((TagQuery_HasDescendantTag*)this)->hash;
 			//std::cout << "TagQueryType::HAS_DESCENDANT findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
 			sqlite3_stmt* stmt = p(
 				tagbase_db,
@@ -412,9 +434,130 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 			throw "Not implemented: finding subtags with a descendant";
 		}
 	}
-	else if (this->type == TagQueryType::HAS_CHILD)
+	else if (this->type == TagQueryType::NOT)
 	{
+		std::shared_ptr<TagQuery> sub = ((TagQuery_Not*)this)->subQuery;
+		if (sub->type == TagQueryType::AND)
+		{
+			// !(a && b)    =>   (!a) || (!b)
+			for (auto operand : std::dynamic_pointer_cast<TagQuery_And>(sub)->operands)
+			{
+				TagQuery_Not(operand).findIn(parentHashSum, result, tagbase_db);
+			}
+		}
+		else if (sub->type == TagQueryType::OR)
+		{
+			// !(a || b)    =>   (!a) && (!b)
+			std::vector<std::shared_ptr<TagQuery>> invertedOperands;
+			for (auto operand : std::dynamic_pointer_cast<TagQuery_Or>(sub)->operands)
+			{
+				invertedOperands.push_back(std::make_shared<TagQuery_Not>(operand));
+			}
+			TagQuery_And(invertedOperands).findIn(parentHashSum, result, tagbase_db);
+		}
+		else if (parentHashSum == ZERO_HASH)
+		{
+			if (sub->type == TagQueryType::HAS_DESCENDANT)
+			{
+				std::cout << "running findFiles on !~\r\n";
 
+				sqlite3_stmt* stmt = p(
+					tagbase_db,
+					"SELECT DISTINCT e._file_hash FROM edges AS e WHERE NOT EXISTS(SELECT e2._file_hash FROM edges AS e2 WHERE e2._file_hash=e._file_hash AND e2._this_hash=? LIMIT 1)"
+				);
+
+				sqlite3_bind_blob(stmt, 1, std::dynamic_pointer_cast<TagQuery_HasDescendantTag>(sub)->hash.data(), 32, SQLITE_STATIC);
+
+				int stepResult;
+				while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
+				{
+					result[sqlite3_column_32chars(stmt, 0)] = true;
+				}
+				if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 9849845";
+			}
+			else if (sub->type == TagQueryType::HAS_CHILD)
+			{
+				sqlite3_stmt* stmt = p(
+					tagbase_db,
+					"SELECT DISTINCT e._file_hash FROM edges AS e WHERE NOT EXISTS(SELECT e2._file_hash FROM edges AS e2 WHERE e2.parent_hash_sum=e._file_hash AND e2._this_hash=? LIMIT 1)"
+				);
+
+				sqlite3_bind_blob(stmt, 1, std::dynamic_pointer_cast<TagQuery_HasChildTag>(sub)->hash.data(), 32, SQLITE_STATIC);
+
+				int stepResult;
+				while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
+				{
+					result[sqlite3_column_32chars(stmt, 0)] = true;
+				}
+				if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 938458934";
+			}
+			else if (sub->type == TagQueryType::HAS_CHILD_WITH_QUERY)
+			{
+				std::cout << "running findFiles on !test[hallo]\r\n";
+				// this = !test[hallo]
+				// sub  = test[hallo]
+
+
+				// First, fetch all files that don't have a 'test'
+				{
+					sqlite3_stmt* stmt = p(
+						tagbase_db,
+						"SELECT DISTINCT e._file_hash FROM edges AS e WHERE NOT EXISTS(SELECT e2._file_hash FROM edges AS e2 WHERE e2.parent_hash_sum=e._file_hash AND e2._this_hash=? LIMIT 1)"
+					);
+
+					sqlite3_bind_blob(stmt, 1, std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash.data(), 32, SQLITE_STATIC);
+
+					int stepResult;
+					while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
+					{
+						std::cout << "Found a file without test!\r\n";
+						result[sqlite3_column_32chars(stmt, 0)] = true;
+					}
+					if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 8934589453";
+				}
+
+				// Now, fetch all files that do have a 'test'
+				{
+					//std::array<char, 32> thisHashSum = non_commutative__non_associative__hash_sum(parentHashSum, std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash);
+
+					//std::cout << "Looking for an edge with _this_hash=" << bytes_to_hex(std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash) << " and _grandparent_hash_sum=" << bytes_to_hex(thisHashSum) << "\r\n";
+
+					sqlite3_stmt* stmt = p(
+						tagbase_db,
+						"SELECT parent_hash_sum, hash_sum FROM edges WHERE _this_hash=?"
+					);
+					sqlite3_bind_blob(stmt, 1, std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash.data(), 32, SQLITE_STATIC);
+					//sqlite3_bind_blob(stmt, 1, thisHashSum.data(), 32, SQLITE_STATIC);
+
+					int stepResult;
+					std::vector<std::pair<std::array<char, 32>, std::array<char, 32>>> temp;
+					while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
+					{
+						std::cout << "Found a tag with test as parent!\r\n";
+						temp.push_back({sqlite3_column_32chars(stmt, 0), sqlite3_column_32chars(stmt, 1)});
+					}
+					if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 92838934";
+
+
+					for (std::pair<std::array<char, 32>, std::array<char, 32>> tt : temp)
+					{
+						std::cout << "Found a file with test! " << bytes_to_hex(tt.first) << " " << bytes_to_hex(tt.second) << "\r\n";
+						if (!std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->query->matches(tt.second, tagbase_db))
+						{
+							result[tt.first] = true;
+						}
+					}
+				}
+			}
+			else
+			{
+				throw "Not implemented: finding files with negative query of type " + std::to_string((int)sub->type);
+			}
+		}
+		else
+		{
+			throw "Not implemented: finding subtags with negative query";
+		}
 	}
 	else if (this->type == TagQueryType::HAS_CHILD_WITH_QUERY)
 	{
@@ -508,9 +651,9 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 	}
 }
 
-long TagQuery::quickCount(sqlite3* tagbase_db)
+long long TagQuery::quickCount(sqlite3* tagbase_db)
 {
-	if (this->type == TagQueryType::HAS_CHILD || this->type == TagQueryType::HAS_DESCENDANT)
+	if (this->type == TagQueryType::HAS_CHILD || this->type == TagQueryType::HAS_DESCENDANT || this->type == TagQueryType::HAS_CHILD_WITH_QUERY)
 	{
 		sqlite3_stmt* stmt = p(
 			tagbase_db,
@@ -530,9 +673,38 @@ long TagQuery::quickCount(sqlite3* tagbase_db)
 		}
 		return ret;
 	}
+	else if (this->type == TagQueryType::XOR)
+	{
+		long ret = 0;
+		for (std::shared_ptr<TagQuery> operand : ((TagQuery_Xor*)this)->operands)
+		{
+			ret += operand->quickCount(tagbase_db);
+		}
+		return ret;
+	}
+	else if (this->type == TagQueryType::AND)
+	{
+		long ret = LONG_MAX;
+		for (std::shared_ptr<TagQuery> operand : ((TagQuery_And*)this)->operands)
+		{
+			long count = operand->quickCount(tagbase_db);
+			if (count < ret) ret = count;
+		}
+		return ret;
+	}
+	else if (this->type == TagQueryType::NOT)
+	{
+		sqlite3_stmt* stmt = p(
+			tagbase_db,
+			"SELECT COUNT(_this_hash) FROM edges"
+		);
+		if (sqlite3_step(stmt) != SQLITE_ROW) throw "not row :((((";
+		long long ret = sqlite3_column_int64(stmt, 0);
+		return ret - ((TagQuery_Not*)this)->subQuery->quickCount(tagbase_db);
+	}
 	else
 	{
-		throw "patatje joppiesaus";
+		throw "patatje joppiesaus" + std::to_string((int)this->type);
 	}
 }
 

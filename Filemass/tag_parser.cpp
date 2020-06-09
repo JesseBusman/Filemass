@@ -91,7 +91,7 @@ std::string readTagName(const std::string& str, int& pos)
 	int startPos = pos;
 	int lastNonWhitespace = -1;
 
-	while (pos < str.size() && str[pos] != ',' && str[pos] != '[' && str[pos] != ']' && str[pos] != '&' && str[pos] != '|' && str[pos] != '^' && str[pos] != '!' && str[pos] != '~')
+	while (pos < str.size() && str[pos] != ',' && str[pos] != '[' && str[pos] != ']' && str[pos] != '&' && str[pos] != '|' && str[pos] != '^' && str[pos] != '!' && str[pos] != '~' && str[pos] != ')' && str[pos] != '(')
 	{
 		//std::cout << "char " << pos << " is '" << str[pos] << "'=" << ((int)str[pos]) << "\r\n";
 		if (str[pos] == ' ' || str[pos] == '\r' || str[pos] == '\t' || str[pos] == '\n')
@@ -178,7 +178,7 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 		std::shared_ptr<TagQuery> ret = _parseTagQuery(str, pos, depth+1);
 		skipWhitespace(str, pos);
 
-		if (str[pos] != ')') throw "Syntax error in tag query: unmatched opening bracket";
+		if (str[pos] != ')') throw "Syntax error in tag query: unmatched opening bracket, at character " + std::to_string(pos) + " '" + str[pos] + "' " + std::to_string((int)str[pos]);
 		pos++;
 
 		return ret;

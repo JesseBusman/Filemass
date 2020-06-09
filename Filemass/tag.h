@@ -24,6 +24,7 @@ public:
 	void debugPrint(int depth=0);
 	void addTo(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& destGrandParentHashSum, const std::array<char, 32>& destFileHash, sqlite3* tagbase_db, bool insideTransaction);
 	void removeFrom(const std::array<char, 32>& parentHashSum, sqlite3* tagbase_db);
+	std::string toString();
 };
 
 std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite3* tagbase_db);
@@ -48,7 +49,7 @@ public:
 	TagQuery(TagQueryType _type);
 	void findIn(const std::array<char, 32>& parentHashSum, std::map<std::array<char, 32>, bool>& result, sqlite3* tagbase_db);
 	bool matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db);
-	long quickCount(sqlite3* tagbase_db);
+	long long quickCount(sqlite3* tagbase_db);
 	virtual std::string toString();
 };
 

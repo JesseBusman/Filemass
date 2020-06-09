@@ -540,8 +540,7 @@ int main(int argc, char* argv[])
 			for (auto const& [fileHash, _] : fileHashes)
 			{
 				std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
-				tags->debugPrint();
-				std::cout << "\r\n";
+				std::cout << tags->toString() << "\r\n";
 			}
 		}
 
