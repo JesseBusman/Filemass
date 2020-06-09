@@ -27,6 +27,25 @@ photo of 2 people (1 known, 1 unknown wearing an AC/DC t-shirt) standing in fron
 photo,person[name[Jesse Busman]],person[clothing[shirt[AC/DC]]],castle
 */
 
+void exitWithError(const char* errorMessage)
+{
+	std::cerr << errorMessage << "\r\n";
+	exit(1);
+}
+
+void exitWithError(const std::string& errorMessage)
+{
+	exitWithError(errorMessage.c_str());
+}
+
+void exitWithErrorIfQueryFailed(int sqliteReturnCode)
+{
+	if (sqliteReturnCode != SQLITE_DONE && sqliteReturnCode != SQLITE_OK)
+	{
+
+	}
+}
+
 int main(int argc, char* argv[])
 {
 	for (int i=0; i<32; i++) ZERO_HASH[i] = 0x00;
@@ -68,7 +87,8 @@ int main(int argc, char* argv[])
 		std::optional<std::string> arg_tag;
 		std::optional<std::string> arg_add_tags;
 		std::optional<std::string> arg_remove_tags;
-	
+		
+		bool arg_json = false;
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
 
@@ -95,7 +115,11 @@ int main(int argc, char* argv[])
 			std::string field = (equalsSignPosition == -1) ? &arg[start] : std::string(&arg[start], equalsSignPosition - start);
 			std::string value = (equalsSignPosition == -1) ? "" : &arg[equalsSignPosition + 1];
 
-			if (field == "add-files")
+			if (field == "json")
+			{
+				arg_json = true;
+			}
+			else if (field == "add-files")
 			{
 				arg_add_files = value;
 			}
@@ -115,9 +139,7 @@ int main(int argc, char* argv[])
 			{
 				if (value.length() != 0)
 				{
-					std::cout << "\r\n--init-repo takes no arguments\r\n";
-					exit(1);
-					return 1;
+					exitWithError("--init-repo takes no arguments");
 				}
 				arg_init_repo = true;
 			}
@@ -125,9 +147,7 @@ int main(int argc, char* argv[])
 			{
 				if (value.length() != 0)
 				{
-					std::cout << "\r\n--init-tagbase takes no arguments\r\n";
-					exit(1);
-					return 1;
+					exitWithError("--init-tagbase takes no arguments");
 				}
 				arg_init_tagbase = true;
 			}
@@ -145,9 +165,7 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
-				std::cout << "\r\nUnknown command line argument " << field << "\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Unknown command line argument " + field);
 			}
 		}
 
@@ -165,24 +183,18 @@ int main(int argc, char* argv[])
 			}
 			if (!std::filesystem::is_directory(selected_repository_path))
 			{
-				std::cerr << "\r\nCannot init repository at " << selected_repository_path << " because it's not a directory\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot init repository at " + selected_repository_path + " because it's not a directory");
 			}
 			if (!std::filesystem::is_empty(selected_repository_path))
 			{
-				std::cerr << "\r\nCannot init repository at " << selected_repository_path << " because that directory is not empty\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot init repository at " + selected_repository_path + " because that directory is not empty");
 			}
 
 			std::string config_path = selected_repository_path + "/fmrepo.conf";
 
 			if (std::filesystem::exists(config_path))
 			{
-				std::cerr << "\r\nCannot init repository at " << selected_repository_path << " because config file already exists at " << config_path << "\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot init repository at " + selected_repository_path + " because config file already exists at " + config_path);
 			}
 
 			std::ofstream outfile(config_path, std::ios::out);
@@ -210,16 +222,12 @@ int main(int argc, char* argv[])
 				}
 				else
 				{
-					std::cerr << "\r\nSpecified repo path is not a directory: " << selected_repository_path << "\r\n";
-					exit(1);
-					return 1;
+					exitWithError("Specified repo path is not a directory: " + selected_repository_path);
 				}
 			}
 			else
 			{
-				std::cerr << "\r\nSpecified repo does not exist: " << selected_repository_path << "\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Specified repo does not exist: " + selected_repository_path);
 			}
 		}
 
@@ -235,19 +243,14 @@ int main(int argc, char* argv[])
 		{
 			if (std::filesystem::exists(selected_tagbase_path))
 			{
-				std::cerr << "\r\nCannot init tagbase at " << selected_tagbase_path << " because that file already exists\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot init tagbase at " + selected_tagbase_path + " because that file already exists");
 			}
 
 			int sqlite_returncode = sqlite3_open(selected_tagbase_path.c_str(), &tagbase_db);
 
 			if (sqlite_returncode != SQLITE_OK)
 			{
-				std::cerr << "\r\nCannot init tagbase at " << selected_tagbase_path << " because of sqlite error " << sqlite_returncode << " :\r\n";
-				std::cerr << sqlite3_errmsg(tagbase_db) << "\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot init tagbase at " + selected_tagbase_path + " because of sqlite error " + std::to_string(sqlite_returncode) + ": " + sqlite3_errmsg(tagbase_db));
 			}
 			
 
@@ -355,13 +358,14 @@ int main(int argc, char* argv[])
 			// 
 			
 			
-
+			/* ??
 			if (selected_repository == nullptr)
 			{
 				sqlite3_close(tagbase_db);
 				exit(0);
 				return 0;
 			}
+			*/
 		}
 
 
@@ -374,25 +378,18 @@ int main(int argc, char* argv[])
 		{
 			if (!std::filesystem::exists(selected_tagbase_path))
 			{
-				std::cerr << "\r\nCannot open tagbase at " << selected_tagbase_path << " because that file does not exist\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot open tagbase at " + selected_tagbase_path + " because that file does not exist");
 			}
 			if (!std::filesystem::is_regular_file(selected_tagbase_path))
 			{
-				std::cerr << "\r\nCannot open tagbase at " << selected_tagbase_path << " because that file is not a regular file\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot open tagbase at " + selected_tagbase_path + " because that file is not a regular file");
 			}
 
 			int sqlite_returncode = sqlite3_open(selected_tagbase_path.c_str(), &tagbase_db);
 
 			if (sqlite_returncode != SQLITE_OK)
 			{
-				std::cerr << "\r\nCannot open tagbase at " << selected_tagbase_path << " because of sqlite error " << sqlite_returncode << " :\r\n";
-				std::cerr << sqlite3_errmsg(tagbase_db) << "\r\n";
-				exit(1);
-				return 1;
+				exitWithError("Cannot open tagbase at " + selected_tagbase_path + " because of sqlite error " + std::to_string(sqlite_returncode) + ": " + sqlite3_errmsg(tagbase_db));
 			}
 		}
 
@@ -436,9 +433,7 @@ int main(int argc, char* argv[])
 					int amountBytes = hex_to_bytes(&arg_files->c_str()[i], hash);
 					if (amountBytes != 32)
 					{
-						throw "Arguments to --files must be 32 bytes hex values.";
-						exit(1);
-						return 1;
+						exitWithError("Arguments to --files must be 32 bytes hex values.");
 					}
 					i += 64;
 					selected_file_hashes.push_back(hash);
@@ -458,16 +453,12 @@ int main(int argc, char* argv[])
 		{
 			if (selected_file_hashes.size() == 0)
 			{
-				std::cerr << "\r\nTo use --add-tags, at least one file must be selected (using --add-files or --files)\r\n";
-				exit(1);
-				return 1;
+				exitWithError("To use --add-tags, at least one file must be selected (using --add-files or --files)");
 			}
 
 			if (tagbase_db == nullptr)
 			{
-				std::cerr << "\r\nTo use --add-tag, a tagbase must be selected\r\n";
-				exit(1);
-				return 1;
+				exitWithError("To use --add-tag, a tagbase must be selected");
 			}
 
 			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
@@ -494,16 +485,12 @@ int main(int argc, char* argv[])
 		{
 			if (selected_file_hashes.size() == 0)
 			{
-				std::cerr << "\r\nTo use --remove-tags, a file must be selected (using --files)\r\n";
-				exit(1);
-				return 1;
+				exitWithError("To use --remove-tags, a file must be selected (using --files)");
 			}
 
 			if (tagbase_db == nullptr)
 			{
-				std::cerr << "\r\nTo use --remove-tags, a tagbase must be selected\r\n";
-				exit(1);
-				return 1;
+				exitWithError("To use --remove-tags, a tagbase must be selected");
 			}
 
 			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
@@ -525,9 +512,7 @@ int main(int argc, char* argv[])
 		{
 			if (tagbase_db == nullptr)
 			{
-				std::cerr << "\r\nTo use --tag, a tagbase must be selected\r\n";
-				exit(1);
-				return 1;
+				exitWithError("To use --tag, a tagbase must be selected");
 			}
 
 			std::shared_ptr<TagQuery> tagQuery = parseTagQuery(*arg_tag);
@@ -555,12 +540,11 @@ int main(int argc, char* argv[])
 	}
 	catch (const char* errorMessage)
 	{
-		std::cerr << "\r\nFatal error: " << errorMessage << "\r\n";
-		return 1;
+		exitWithError("Fatal error: " + std::string(errorMessage));
 	}
 	catch (std::string errorMessage)
 	{
-		std::cerr << "\r\nFatal error: " << errorMessage << "\r\n";
-		return 1;
+		exitWithError("Fatal error: " + errorMessage);
 	}
+	return 1;
 }
