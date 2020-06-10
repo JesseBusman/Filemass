@@ -28,30 +28,10 @@ photo of 2 people (1 known, 1 unknown wearing an AC/DC t-shirt) standing in fron
 photo,person[name[Jesse Busman]],person[clothing[shirt[AC/DC]]],castle
 */
 
-bool arg_debug = false;
+bool DEBUGGING = false;
 bool arg_json = false;
 JsonValue_Map jsonOutput;
 
-void exitWithError(const char* errorMessage)
-{
-	if (arg_json)
-	{
-		jsonOutput.map["error"] = std::make_shared<JsonValue_String>(errorMessage);
-		std::stringstream str;
-		jsonOutput.write(str);
-		std::cout << str.rdbuf();
-	}
-	else
-	{
-		std::cerr << errorMessage << "\r\n";
-	}
-	exit(1);
-}
-
-void exitWithError(const std::string& errorMessage)
-{
-	exitWithError(errorMessage.c_str());
-}
 
 /*
 void exitWithErrorIfQueryFailed(int sqliteReturnCode)
@@ -76,22 +56,22 @@ int main(int argc, char* argv[])
 				<< "Repo:\r\n"
 				<< "--repo=[dir]         Select repo located at directory [dir]\r\n"
 				<< "--init-repo          Initialize the selected repository\r\n"
-				<< "Tagbase:\r\n"
+				<< "\r\nTagbase:\r\n"
 				<< "--tagbase=[file]     Select tagbase located in file [file]\r\n"
 				<< "--init-tagbase       Initialize the selected tagbase\r\n"
-				<< "Files:\r\n"
+				<< "\r\nFiles:\r\n"
 				<< "--files=[hashlist]   Select the files with hash in [hashlist]\r\n"
 				<< "--add-files=[file]   Add files matching [file] to selected repo, and select them\r\n"
-				<< "Tags:\r\n"
+				<< "\r\nTags:\r\n"
 				<< "--tag=[tagquery]        Find files that match the given [tagquery]\r\n"
 				<< "--add-tags=[taglist]    Add [tags] to the selected files\r\n"
 				<< "--remove-tags=[taglist] Remove [tags] from the selected files\r\n"
-				<< "\r\n"
-				<< "Examples of [taglist] syntax:\r\n"
+				<< "\r\nOutput format:\r\n"
+				<< "--json               Format output as JSON\r\n"
+				<< "\r\nExamples of [taglist] syntax:\r\n"
 				<< "--add-tag=football,match,sport,team[Los Angeles],team[Chicago]\r\n"
 				<< "--untag=team[name=Chicago]\r\n"
-				<< "\r\n"
-				<< "Examples of [tagquery] syntax:\r\n"
+				<< "\r\nExamples of [tagquery] syntax:\r\n"
 				<< "--tag=\"football & team[Los Angeles | Chicago]\"\r\n";
 			exit(0);
 			return 0;
@@ -106,7 +86,7 @@ int main(int argc, char* argv[])
 		std::optional<std::string> arg_remove_tags;
 		
 		arg_json = false;
-		arg_debug = false;
+		DEBUGGING = false;
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
 
@@ -139,7 +119,7 @@ int main(int argc, char* argv[])
 			}
 			else if (field == "debug")
 			{
-				arg_debug = true;
+				DEBUGGING = true;
 			}
 			else if (field == "add-files")
 			{
@@ -445,14 +425,16 @@ int main(int argc, char* argv[])
 		{
 			std::shared_ptr<PathPattern> pathPattern = parsePathPattern(*arg_add_files);
 
-			if (arg_debug) std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
+			if (DEBUGGING)
+			{
+				if (arg_json) jsonOutput.set("_debug_pathPattern", pathPattern->toString());
+				else std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
+			}
 			
 			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
 				{
-					std::cerr << "\r\nThe file you're trying to add is not a regular file: " << path << "\r\n";
-					exit(1);
-					return 1;
+					exitWithError("The file you're trying to add is not a regular file: " + path);
 				}
 				selected_file_hashes.push_back(selected_repository->add(path));
 			});

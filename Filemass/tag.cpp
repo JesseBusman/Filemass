@@ -99,7 +99,7 @@ std::string Tag::toString()
 	if (this->subtags.size() >= 1)
 	{
 		ret += '[';
-		for (int i=0; i<this->subtags.size(); i++)
+		for (size_t i=0; i<this->subtags.size(); i++)
 		{
 			if (i != 0) ret += ',';
 			ret += this->subtags[i]->toString();
@@ -157,7 +157,7 @@ void Tag::debugPrint(int depth)
 
 	if (subtags.size() != 0)
 	{
-		for (int i=0; i<subtags.size(); i++)
+		for (size_t i=0; i<subtags.size(); i++)
 		{
 			//if (i != 0) { std::cout << ','; }
 			subtags[i]->debugPrint(depth+2);
@@ -222,11 +222,7 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 
 		if (stepResult != SQLITE_DONE)
 		{
-			std::cout << "\r\n" << stepResult;
-			std::cout << "\r\nsqlite3_step did not return SQLITE_DONE on query INSERT INTO hashed_data\r\n";
-			std::cout << sqlite3_errmsg(tagbase_db) << "\r\n";
-			exit(1);
-			throw 1;
+			exitWithError(std::to_string(stepResult) +  " < sqlite3_step did not return SQLITE_DONE on query INSERT OR IGNORE INTO hashed_data: " + sqlite3_errmsg(tagbase_db));
 		}
 	}
 
@@ -250,11 +246,7 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 
 	if (stepResult != SQLITE_DONE)
 	{
-		std::cout << "\r\n" << stepResult;
-		std::cout << "\r\nsqlite3_step did not return SQLITE_DONE on query INSERT INTO EDGES\r\n";
-		std::cout << sqlite3_errmsg(tagbase_db) << "\r\n";
-		exit(1);
-		throw 1;
+		exitWithError(std::to_string(stepResult) +  " < sqlite3_step did not return SQLITE_DONE on query INSERT OR IGNORE INTO edges: " + sqlite3_errmsg(tagbase_db));
 	}
 	
 	for (auto subtag : this->subtags)
@@ -286,7 +278,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 		else if (stepResult == SQLITE_DONE) ret = false;
 		else
 		{
-			throw "Query error in matches TagQueryType::HAS_CHILD";
+			exitWithError("Query error in matches TagQueryType::HAS_CHILD " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 		}
 		return ret;
 	}
@@ -307,7 +299,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 		}
 		if (stepResult != SQLITE_DONE && stepResult != SQLITE_ROW)
 		{
-			throw "Query error in matches TagQueryType::HAS_CHILD_WITH_QUERY";
+			exitWithError("Query error in matches TagQueryType::HAS_CHILD_WITH_QUERY " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 		}
 
 		for (std::array<char, 32> hash_sum : temp)
@@ -332,7 +324,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			bool ret;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
-			else throw "Query error in matches TagQueryType::HAS_CHILD";
+			else exitWithError("Query error in matches #1 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 			if (ret == true) return true;
 		}
 
@@ -347,7 +339,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			bool ret;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
-			else throw "Query error in matches TagQueryType::HAS_CHILD";
+			else exitWithError("Query error in matches #2 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 			if (ret == true) return true;
 		}
 		
@@ -368,7 +360,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			bool ret;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
-			else throw "Query error in matches TagQueryType::HAS_CHILD";
+			else exitWithError("Query error in matches #3 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 			if (ret == true) return true;
 		}
 		
@@ -428,7 +420,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 			std::array<char, 32> parent_hash_sum = sqlite3_column_32chars(stmt, 0);
 			result[parent_hash_sum] = true;
 		}
-		if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 948348984593";
+		if (stepResult != SQLITE_DONE) exitWithError("Query error in findIn(..) on HAS_CHILD: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 	}
 	else if (this->type == TagQueryType::HAS_DESCENDANT)
 	{
@@ -447,7 +439,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 				std::array<char, 32> file_hash = sqlite3_column_32chars(stmt, 0);
 				result[file_hash] = true;
 			}
-			if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 36225562";
+			if (stepResult != SQLITE_DONE) exitWithError("Query error in findIn(..) on HAS_DESCENDANT: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 		}
 		else
 		{
@@ -479,7 +471,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		{
 			if (sub->type == TagQueryType::HAS_DESCENDANT)
 			{
-				std::cout << "running findFiles on !~\r\n";
+				if (DEBUGGING) std::cout << "running findFiles on !~\r\n";
 
 				sqlite3_stmt* stmt = p(
 					tagbase_db,
@@ -513,7 +505,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 			}
 			else if (sub->type == TagQueryType::HAS_CHILD_WITH_QUERY)
 			{
-				std::cout << "running findFiles on !test[hallo]\r\n";
+				if (DEBUGGING) std::cout << "running findFiles on !test[hallo]\r\n";
 				// this = !test[hallo]
 				// sub  = test[hallo]
 
@@ -530,10 +522,10 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 					int stepResult;
 					while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
 					{
-						std::cout << "Found a file without test!\r\n";
+						if (DEBUGGING) std::cout << "Found a file without test!\r\n";
 						result[sqlite3_column_32chars(stmt, 0)] = true;
 					}
-					if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 8934589453";
+					if (stepResult != SQLITE_DONE) exitWithError("Query #1 error in findIn(..) on NOT > HAS_CHILD_WITH_QUERY: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 				}
 
 				// Now, fetch all files that do have a 'test'
@@ -556,7 +548,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 						std::cout << "Found a tag with test as parent!\r\n";
 						temp.push_back({sqlite3_column_32chars(stmt, 0), sqlite3_column_32chars(stmt, 1)});
 					}
-					if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 92838934";
+					if (stepResult != SQLITE_DONE) exitWithError("Query #2 error in findIn(..) on NOT > HAS_CHILD_WITH_QUERY: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 
 
 					for (std::pair<std::array<char, 32>, std::array<char, 32>> tt : temp)
@@ -598,7 +590,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		{
 			temp.push_back({sqlite3_column_32chars(stmt, 0), sqlite3_column_32chars(stmt, 1)});
 		}
-		if (stepResult != SQLITE_DONE) throw "ERROR IN QUERY 92349832";
+		if (stepResult != SQLITE_DONE) exitWithError("Query error in findIn(..) on HAS_CHILD_WITH_QUERY: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
 
 		for (std::pair<std::array<char, 32>, std::array<char, 32>> tt : temp)
 		{
@@ -619,7 +611,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 	{
 		const auto& operands = ((TagQuery_And*)this)->operands;
 
-		std::map<int, long> operand_to_count;
+		std::map<int, long long> operand_to_count;
 		{
 			int i = 0;
 			for (std::shared_ptr<TagQuery> subQuery : operands)
@@ -631,8 +623,8 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 
 		std::shared_ptr<TagQuery> operand0 = operands[operand_to_count.begin()->first];
 		std::shared_ptr<TagQuery> operand1 = operands[(operand_to_count.begin()++)->first];
-		int operand0cardinality = operand_to_count.begin()->second;
-		int operand1cardinality = (operand_to_count.begin()++)->second;
+		long long operand0cardinality = operand_to_count.begin()->second;
+		long long operand1cardinality = (operand_to_count.begin()++)->second;
 
 		//std::cout << "TagQueryType::AND: operand0cardinality=" << operand0cardinality << " operand1cardinality=" << operand1cardinality << "\r\n";
 
@@ -680,13 +672,13 @@ long long TagQuery::quickCount(sqlite3* tagbase_db)
 			"SELECT COUNT(_this_hash) FROM edges WHERE _this_hash=?"
 		);
 		sqlite3_bind_blob(stmt, 1, ((TagQuery_HasTag*)this)->hash.data(), 32, SQLITE_STATIC);
-		if (sqlite3_step(stmt) != SQLITE_ROW) throw "not row :((((";
-		long ret = sqlite3_column_int64(stmt, 0);
-		return ret;
+		int stepResult = sqlite3_step(stmt);
+		if (stepResult != SQLITE_ROW) exitWithError("Query error in quickCount(..) on HAS_CHILD/HAS_DESCENDANT/HAS_CHILD_WITH_QUERY: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
+		return sqlite3_column_int64(stmt, 0);
 	}
 	else if (this->type == TagQueryType::OR)
 	{
-		long ret = 0;
+		long long ret = 0;
 		for (std::shared_ptr<TagQuery> operand : ((TagQuery_Or*)this)->operands)
 		{
 			ret += operand->quickCount(tagbase_db);
@@ -695,7 +687,7 @@ long long TagQuery::quickCount(sqlite3* tagbase_db)
 	}
 	else if (this->type == TagQueryType::XOR)
 	{
-		long ret = 0;
+		long long ret = 0;
 		for (std::shared_ptr<TagQuery> operand : ((TagQuery_Xor*)this)->operands)
 		{
 			ret += operand->quickCount(tagbase_db);
@@ -704,10 +696,10 @@ long long TagQuery::quickCount(sqlite3* tagbase_db)
 	}
 	else if (this->type == TagQueryType::AND)
 	{
-		long ret = LONG_MAX;
+		long long ret = LLONG_MAX;
 		for (std::shared_ptr<TagQuery> operand : ((TagQuery_And*)this)->operands)
 		{
-			long count = operand->quickCount(tagbase_db);
+			long long count = operand->quickCount(tagbase_db);
 			if (count < ret) ret = count;
 		}
 		return ret;
@@ -718,9 +710,9 @@ long long TagQuery::quickCount(sqlite3* tagbase_db)
 			tagbase_db,
 			"SELECT COUNT(_this_hash) FROM edges"
 		);
-		if (sqlite3_step(stmt) != SQLITE_ROW) throw "not row :((((";
-		long long ret = sqlite3_column_int64(stmt, 0);
-		return ret - ((TagQuery_Not*)this)->subQuery->quickCount(tagbase_db);
+		int stepResult = sqlite3_step(stmt);
+		if (stepResult != SQLITE_ROW) exitWithError("Query error in quickCount(..) on NOT: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
+		return sqlite3_column_int64(stmt, 0) - ((TagQuery_Not*)this)->subQuery->quickCount(tagbase_db);
 	}
 	else
 	{
@@ -807,7 +799,7 @@ std::string TagQuery::toString()
 std::string TagQuery_Or::toString()
 {
 	std::string ret = "";
-	for (int i=0; i<this->operands.size(); i++)
+	for (size_t i=0; i<this->operands.size(); i++)
 	{
 		if (i != 0) ret += " | ";
 		ret += "(" + this->operands[i]->toString() + ")";
@@ -818,7 +810,7 @@ std::string TagQuery_Or::toString()
 std::string TagQuery_And::toString()
 {
 	std::string ret = "";
-	for (int i=0; i<this->operands.size(); i++)
+	for (size_t i=0; i<this->operands.size(); i++)
 	{
 		if (i != 0) ret += " & ";
 		ret += "(" + this->operands[i]->toString() + ")";
@@ -829,7 +821,7 @@ std::string TagQuery_And::toString()
 std::string TagQuery_Xor::toString()
 {
 	std::string ret = "";
-	for (int i=0; i<this->operands.size(); i++)
+	for (size_t i=0; i<this->operands.size(); i++)
 	{
 		if (i != 0) ret += " ^ ";
 		ret += "(" + this->operands[i]->toString() + ")";

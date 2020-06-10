@@ -101,12 +101,12 @@ long MerkelTree::getTotalBytes()
 }
 void MerkelTree::finalize()
 {
-	std::cout << "Finalize running calcHash()\r\n";
+	// std::cout << "Finalize running calcHash()\r\n";
 	if (finalized) throw("finalize() called on already finalized merkel tree");
 	rootMerkelNode->calcHash();
 	memcpy(&this->hash[0], &rootMerkelNode->hash[0], 32);
 	finalized = true;
-	std::cout << "finalize() done\r\n";
+	// std::cout << "finalize() done\r\n";
 }
 void MerkelTree::addData(const char* data, int amountBytes)
 {

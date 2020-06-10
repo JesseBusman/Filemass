@@ -36,9 +36,7 @@ Repository::Repository(std::string _path) :
 			size_t equalsSignPos = line.find('=');
 			if (equalsSignPos == std::string::npos)
 			{
-				std::cout << "\r\nSyntax error 'no = found' in " << config_file << " on line " << lineCount << ": " << line << "\r\n";
-				exit(1);
-				throw 1;
+				exitWithError("Syntax error 'no = found' in " + config_file + " on line " + std::to_string(lineCount) + ": " + line);
 			}
 
 			this->config[trim(line.substr(0, equalsSignPos))] = trim(line.substr(equalsSignPos + 1));
@@ -46,17 +44,15 @@ Repository::Repository(std::string _path) :
 	}
 	else
 	{
-		std::cout << "\r\nNo repo config file found at " << config_file << "\r\n";
-		exit(1);
-		throw 1;
+		exitWithError("No repo config file found at " + config_file);
 	}
 }
 
 std::array<char, 32> Repository::add(std::string _path)
 {
-	if (!std::filesystem::exists(_path)) { std::cout << "\r\nFile does not exist: " << _path << "\r\n"; exit(1); throw 1; }
-	if (!std::filesystem::is_regular_file(_path)) { std::cout << "\r\nFile is not a regular file: " << _path << "\r\n"; exit(1); throw 1; }
-		
+	if (!std::filesystem::exists(_path)) exitWithError("File does not exist: " + _path);
+	if (!std::filesystem::is_regular_file(_path)) exitWithError("File is not a regular file: " + _path);
+	
 	//SHA256 hasher;
 	//hasher.init();
 	MerkelTree merkelTree;
@@ -64,7 +60,7 @@ std::array<char, 32> Repository::add(std::string _path)
 	unsigned long fileSize = std::filesystem::file_size(_path);
 	unsigned long bytesRead = 0;
 
-	std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
+	if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
 
 	std::ifstream file(_path, std::ios_base::binary);
 	char buff[1024];
@@ -93,32 +89,33 @@ std::array<char, 32> Repository::add(std::string _path)
 	std::string destPath = path;
 
 	destPath += "/" + hashHex.substr(0, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
-	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
+	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
 	destPath += "/" + hashHex.substr(2, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
-	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
+	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
 	destPath += "/" + hashHex.substr(4, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) { std::cout << "\r\nCould not create directory: " << destPath << "\r\n"; exit(1); throw 1; } }
-	else if (!std::filesystem::is_directory(destPath)) { std::cout << "\r\nNot a directory: " << destPath << "\r\n"; exit(1); throw 1; }
+	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
 	destPath += "/" + hashHex;
 	if (std::filesystem::exists(destPath))
 	{
 		if (std::filesystem::file_size(destPath) == std::filesystem::file_size(_path))
 		{
-			std::cout << "File " << _path << " already exists at " << destPath << "\r\n";
+			if (DEBUGGING) std::cout << "File " << _path << " already exists at " << destPath << "\r\n";
 		}
 		else
 		{
-			std::cout << "File " << _path << " already exists at " << destPath << ", but they have different sizes!\r\n";
-			exit(1);
-			throw 1;
+			exitWithError("File " + _path + " already exists at " + destPath + ", but they have different sizes!");
 		}
 	}
-	else if (!std::filesystem::copy_file(_path, destPath)) { std::cout << "\r\nFailed to copy file " << _path << " to " << destPath << "\r\n"; exit(1); throw 1; }
+	else if (!std::filesystem::copy_file(_path, destPath))
+	{
+		exitWithError("Failed to copy file " + _path + " to " + destPath);
+	}
 
 	return hash;
 }

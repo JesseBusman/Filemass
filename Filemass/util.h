@@ -6,6 +6,11 @@
 struct sqlite3_stmt;
 struct sqlite3;
 
+extern bool DEBUGGING;
+
+void exitWithError(const char* errorMessage);
+void exitWithError(const std::string& errorMessage);
+
 sqlite3_stmt* p(sqlite3* db, const char* query);
 void q(sqlite3* db, const char* query);
 

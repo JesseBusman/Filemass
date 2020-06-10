@@ -4,11 +4,37 @@
 #include <array>
 #include <map>
 #include <iostream>
+#include <sstream>
 
 #include "util.h"
 #include "sqlite3.h"
+#include "json.h"
 
 char HEX_CHARS[] = "0123456789ABCDEF";
+
+extern bool arg_json;
+extern JsonValue_Map jsonOutput;
+
+void exitWithError(const char* errorMessage)
+{
+	if (arg_json)
+	{
+		jsonOutput.map["error"] = std::make_shared<JsonValue_String>(errorMessage);
+		std::stringstream str;
+		jsonOutput.write(str);
+		std::cout << str.rdbuf();
+	}
+	else
+	{
+		std::cerr << errorMessage << "\r\n";
+	}
+	exit(1);
+}
+
+void exitWithError(const std::string& errorMessage)
+{
+	exitWithError(errorMessage.c_str());
+}
 
 sqlite3_stmt* p(sqlite3* db, const char* query)
 {
@@ -167,12 +193,12 @@ void readExactly(std::ifstream& source, char* destBuffer, unsigned long long amo
 		source.read(destBuffer, amount);
 		std::streamsize amountRead = source.gcount();
 
-		if (amountRead > amount) throw ("wtf in readExactly: amountRead > amount");
+		if (amountRead > amount) exitWithError("wtf in readExactly: amountRead > amount");
 
 		destBuffer += amountRead;
 		amount -= amountRead;
 
-		if (amount > 0 && source.eof()) throw "readExactly() reached end of file! " + std::to_string(amount) + " bytes remaining";
+		if (amount > 0 && source.eof()) exitWithError("readExactly() reached end of file! " + std::to_string(amount) + " bytes remaining");
 	}
 }
 
@@ -183,7 +209,7 @@ void readExactly(std::fstream& source, char* destBuffer, unsigned long long amou
 		source.read(destBuffer, amount);
 		std::streamsize amountRead = source.gcount();
 
-		if (amountRead > amount) throw ("wtf in readExactly: amountRead > amount");
+		if (amountRead > amount) exitWithError("wtf in readExactly: amountRead > amount");
 
 		destBuffer += amountRead;
 		amount -= amountRead;
@@ -195,7 +221,7 @@ std::array<char, 32> ZERO_HASH;
 std::array<char, 32> sqlite3_column_32chars(sqlite3_stmt* stmt, int columnIndex)
 {
 	int size = sqlite3_column_bytes(stmt, columnIndex);
-	if (size != 32) throw "sqlite3_column_32chars on column with size of " +std::to_string(size);
+	if (size != 32) exitWithError("sqlite3_column_32chars on column with size of " +std::to_string(size));
 	std::array<char, 32> ret;
 	memcpy(ret.data(), sqlite3_column_blob(stmt, columnIndex), 32);
 	return ret;

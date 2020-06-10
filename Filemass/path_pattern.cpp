@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "path_pattern.h"
+#include "util.h"
 
 PathPattern_DirectoriesThatMatch::PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern, bool _absolutePath):
 	str(_str), subPattern(_subPattern), absolutePath(_absolutePath)
@@ -81,23 +82,23 @@ void PathPattern::findFiles(const std::string& baseDirectory, std::function<void
 
 void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
 {
-	std::cout << "PathPattern_DirectoriesThatMatch(" << baseDirectory << ")\r\n";
+	//std::cout << "PathPattern_DirectoriesThatMatch(" << baseDirectory << ")\r\n";
 	if (this->absolutePath)
 	{
-		std::cout << this->str << " is an absolute path!\r\n";
+		//std::cout << this->str << " is an absolute path!\r\n";
 		this->subPattern->findFiles(this->str, callback);
 	}
 	else
 	{
 		if (!std::filesystem::exists(baseDirectory))
 		{
-			std::cerr << "Directory " << baseDirectory << " does not exist!\r\n";
+			exitWithError("Directory " + baseDirectory + " does not exist!");
 			return;
 		}
 
 		if (!std::filesystem::is_directory(baseDirectory))
 		{
-			std::cerr << baseDirectory << " is not a directory!\r\n";
+			exitWithError(baseDirectory + " is not a directory!");
 			return;
 		}
 		
