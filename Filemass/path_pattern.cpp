@@ -7,16 +7,16 @@
 #include "path_pattern.h"
 #include "util.h"
 
-void pathPatternSyntaxError(const std::string& str, int pos, const char* msg)
+void pathPatternSyntaxError(const std::string& str, unsigned int pos, const char* msg)
 {
 	std::stringstream out;
 	out << "\r\n" << str << "\r\n";
-	for (int i=0; i<pos; i++) out << ' ';
+	for (unsigned int i=0; i<pos; i++) out << ' ';
 	out << "^\r\n";
 	out << msg << "\r\n";
 	exitWithError(out.str());
 }
-void pathPatternSyntaxError(const std::string& str, int pos, const std::string& msg)
+void pathPatternSyntaxError(const std::string& str, unsigned int pos, const std::string& msg)
 {
 	pathPatternSyntaxError(str, pos, msg.c_str());
 }
@@ -90,7 +90,7 @@ std::string PathPattern_AlsoCheckSubDirectoriesRecursively::toString()
 
 
 
-void PathPattern::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
+void PathPattern::findFiles(const std::string&, std::function<void(const std::string& path)>)
 {
 	throw "default PathPattern::findFiles should never be called.";
 }
@@ -190,11 +190,11 @@ void PathPattern_AlsoCheckSubDirectoriesRecursively::findFiles(const std::string
 }
 
 
-std::string readPatternPathSegment(const std::string& str, int& pos)
+std::string readPatternPathSegment(const std::string& str, unsigned int& pos)
 {
 	if (DEBUGGING) std::cout << "readPatternPathSegment(" << str.substr(pos) << ")\r\n";
 
-	const int startPos = pos;
+	const unsigned int startPos = pos;
 	while (pos < str.length() && str[pos] != '\\' && str[pos] != '/' && str[pos] != ',')
 	{
 		pos++;
@@ -205,7 +205,7 @@ std::string readPatternPathSegment(const std::string& str, int& pos)
 	return str.substr(startPos, pos-startPos);
 }
 
-std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos, bool isFirstSegment)
+std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, unsigned int& pos, bool isFirstSegment)
 {
 	if (DEBUGGING) std::cout << "_parsePathPattern(" << str.substr(pos) << ")\r\n";
 
@@ -234,6 +234,7 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos,
 			else
 			{
 				pathPatternSyntaxError(str, pos, "Expected path delimiter: / or \\");
+				return nullptr;
 			}
 
 			absolutePathPrefix += slashAfterAbsolutePathPrefix;
@@ -288,7 +289,7 @@ std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern)
 	if (DEBUGGING) std::cout << "parsePathPattern(" << pattern << ")\r\n";
 
 	std::vector<std::shared_ptr<PathPattern>> patterns;
-	int pos = 0;
+	unsigned int pos = 0;
 	while (true)
 	{
 		patterns.push_back(_parsePathPattern(pattern, pos, true));

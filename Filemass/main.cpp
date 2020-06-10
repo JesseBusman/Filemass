@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 		std::optional<std::string> arg_tagbase;
 		std::optional<std::string> arg_files;
 		std::optional<std::string> arg_add_files;
-		std::optional<std::string> arg_tag;
+		std::optional<std::string> arg_tags;
 		std::optional<std::string> arg_add_tags;
 		std::optional<std::string> arg_remove_tags;
 		
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 			}
 			else if (field == "tags")
 			{
-				arg_tag = value;
+				arg_tags = value;
 			}
 			else if (field == "add-tags")
 			{
@@ -392,7 +392,7 @@ int main(int argc, char* argv[])
 		//////////////////////////////////////////////////
 		//// --tagbase
 
-		if (tagbase_db == nullptr && (arg_tag.has_value() || arg_remove_tags.has_value() || arg_add_tags.has_value()))
+		if (tagbase_db == nullptr && (arg_tags.has_value() || arg_remove_tags.has_value() || arg_add_tags.has_value()))
 		{
 			if (!std::filesystem::exists(selected_tagbase_path))
 			{
@@ -526,16 +526,18 @@ int main(int argc, char* argv[])
 
 
 		//////////////////////////////////////////////////////////
-		//// --tag
+		//// --tags
 
-		if (arg_tag.has_value())
+		if (arg_tags.has_value())
 		{
 			if (tagbase_db == nullptr)
 			{
 				exitWithError("To use --tag, a tagbase must be selected");
 			}
 
-			std::shared_ptr<TagQuery> tagQuery = parseTagQuery(*arg_tag);
+			std::shared_ptr<TagQuery> tagQuery = parseTagQuery(*arg_tags);
+
+			if (DEBUGGING) std::cout << "Tag query: " << tagQuery->toString() << "\r\n";
 			
 			std::map<std::array<char, 32>, bool> fileHashes;
 			tagQuery->findIn(ZERO_HASH, fileHashes, tagbase_db);

@@ -10,7 +10,7 @@
 void writeString(std::stringstream& stream, const std::string& str)
 {
 	stream << '"';
-	for (int i=0; i<str.length(); i++)
+	for (size_t i=0; i<str.length(); i++)
 	{
 		if (str[i] == '\\') stream << "\\\\";
 		else if (str[i] == '\"') stream << "\\\"";
@@ -24,7 +24,7 @@ void writeSpaces(std::stringstream& stream, int n)
 	for (int i=0; i<n; i++) stream << ' ';
 }
 
-void JsonValue::write(std::stringstream& stream, int depth, bool prefixSpaces)
+void JsonValue::write(std::stringstream&, int, bool)
 {
 	throw 234923849;
 }
@@ -51,7 +51,7 @@ JsonValue_Array::JsonValue_Array():
 }
 
 
-void JsonValue_String::write(std::stringstream& stream, int depth, bool prefixSpaces)
+void JsonValue_String::write(std::stringstream& stream, int, bool)
 {
 	writeString(stream, this->str);
 }
@@ -60,7 +60,7 @@ void JsonValue_Map::write(std::stringstream& stream, int depth, bool prefixSpace
 {
 	if (prefixSpaces) writeSpaces(stream, depth); stream << "{\r\n";
 	bool first = true;
-	int n = 0;
+	size_t n = 0;
 	for (auto const& [key, value] : this->map)
 	{
 		n++;

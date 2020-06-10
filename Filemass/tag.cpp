@@ -206,7 +206,7 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 		q(tagbase_db, "BEGIN TRANSACTION");
 	}
 
-	std::cout << bytes_to_hex(*thisHash) << "->addTo(" << bytes_to_hex(destParentHashSum) << ")\r\n";
+	if (DEBUGGING) std::cout << bytes_to_hex(*thisHash) << "->addTo(" << bytes_to_hex(destParentHashSum) << ")\r\n";
 
 	if (this->name->length() < 65536)
 	{
@@ -600,11 +600,71 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 			}
 		}
 	}
+	else if (this->type == TagQueryType::HAS_DESCENDANT_WITH_QUERY)
+	{
+		if (parentHashSum == ZERO_HASH)
+		{
+			std::array<char, 32> searchHash = ((TagQuery_HasChildTagWithQuery*)this)->hash;
+			std::shared_ptr<TagQuery> query = ((TagQuery_HasChildTagWithQuery*)this)->query;
+
+			//std::cout << "TagQueryType::HAS_CHILD_WITH_QUERY findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
+
+			sqlite3_stmt* stmt = p(
+				tagbase_db,
+				"SELECT _file_hash, hash_sum FROM edges WHERE _this_hash=?"
+			);
+			sqlite3_bind_blob(stmt, 1, searchHash.data(), 32, SQLITE_STATIC);
+			sqlite3_bind_blob(stmt, 2, parentHashSum.data(), 32, SQLITE_STATIC);
+			int stepResult;
+			std::vector<std::pair<std::array<char, 32>, std::array<char, 32>>> temp;
+			while ((stepResult = sqlite3_step(stmt)) == SQLITE_ROW)
+			{
+				temp.push_back({sqlite3_column_32chars(stmt, 0), sqlite3_column_32chars(stmt, 1)});
+			}
+			if (stepResult != SQLITE_DONE) exitWithError("Query error in findIn(..) on HAS_DESCENDANT_WITH_QUERY: " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
+
+			for (std::pair<std::array<char, 32>, std::array<char, 32>> tt : temp)
+			{
+				if (query->matches(tt.second, tagbase_db))
+				{
+					result[tt.first] = true;
+				}
+			}
+		}
+		else
+		{
+			exitWithError("Not implemented: HAS_DESCENDANT_WITH_QUERY on subtags");
+		}
+	}
 	else if (this->type == TagQueryType::OR)
 	{
 		for (std::shared_ptr<TagQuery> subQuery : ((TagQuery_Or*)this)->operands)
 		{
 			this->findIn(parentHashSum, result, tagbase_db);
+		}
+	}
+	else if (this->type == TagQueryType::XOR)
+	{
+		auto t = ((TagQuery_Xor*)this);
+		std::map<std::array<char, 32>, bool> temp1;
+		t->operands[0]->findIn(parentHashSum, temp1, tagbase_db);
+
+		for (int i=1; i<t->operands.size(); i++)
+		{
+			std::map<std::array<char, 32>, bool> temp2;
+			t->operands[i]->findIn(parentHashSum, temp2, tagbase_db);
+			for (const auto& [key, value] : temp2)
+			{
+				if (value == true)
+				{
+					temp1[key] ^= true;
+				}
+			}
+		}
+
+		for (const auto& [key, value] : temp1)
+		{
+			if (value == true) result[key] = true;
 		}
 	}
 	else if (this->type == TagQueryType::AND)
@@ -763,9 +823,8 @@ TagQuery_HasTag::TagQuery_HasTag(TagQueryType _type, const std::string& _tagName
 	TagQuery(_type),
 	tagName(_tagName)
 {
-	//std::cout << "TagQuery_HasTag(" << _tagName << ") length=" << _tagName.length() << "\r\n";
 	SHA256 ctx;
-	ctx.update((unsigned char*)_tagName.data(), _tagName.length());
+	ctx.update((const unsigned char*)_tagName.data(), _tagName.length());
 	ctx.final((unsigned char*)this->hash.data());
 }
 
@@ -846,6 +905,7 @@ std::string TagQuery_HasDescendantTag::toString()
 
 std::string TagQuery_HasChildTagWithQuery::toString()
 {
+	if (DEBUGGING) std::cout << "tagname=" << this->tagName << " length=" << this->tagName.length() << "\r\n";
 	return std::string(this->tagName) + "[" + this->query->toString() + "]";
 }
 

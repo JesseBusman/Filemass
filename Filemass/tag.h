@@ -106,7 +106,6 @@ public:
 class TagQuery_HasDescendantTag : public TagQuery_HasTag
 {
 public:
-	std::string tagName;
 	TagQuery_HasDescendantTag(const std::string& _tagName);
 	virtual std::string toString();
 };
@@ -114,7 +113,6 @@ public:
 class TagQuery_HasChildTagWithQuery : public TagQuery_HasTag
 {
 public:
-	std::string tagName;
 	std::shared_ptr<TagQuery> query;
 	TagQuery_HasChildTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
 	virtual std::string toString();
@@ -123,7 +121,6 @@ public:
 class TagQuery_HasDescendantTagWithQuery : public TagQuery_HasTag
 {
 public:
-	std::string tagName;
 	std::shared_ptr<TagQuery> query;
 	TagQuery_HasDescendantTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
 	virtual std::string toString();

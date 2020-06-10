@@ -3,9 +3,37 @@
 #include <iostream>
 #include <vector>
 #include <stack>
+#include <sstream>
 
 #include "tag.h"
+#include "util.h"
 #include "tag_parser.h"
+
+void tagQuerySyntaxError(const std::string& str, int pos1, int pos2, const char* msg)
+{
+	if (pos2 == pos1) pos2 = -1;
+	else if (pos2 != -1 && pos1 > pos2) std::swap(pos1, pos2);
+	std::stringstream out;
+	out << "\r\n" << str << "\r\n";
+	for (int i=0; i<pos1; i++) out << ' ';
+	out << '^';
+	if (pos2 != -1)
+	{
+		for (int i=0; i<pos2-pos1-1; i++) out << ' ';
+		out << '^';
+	}
+	out << "\r\n";
+	out << msg << "\r\n";
+	exitWithError(out.str());
+}
+void tagQuerySyntaxError(const std::string& str, int pos, const char* msg)
+{
+	tagQuerySyntaxError(str, pos, -1, msg);
+}
+void tagQuerySyntaxError(const std::string& str, int pos, const std::string& msg)
+{
+	tagQuerySyntaxError(str, pos, msg.c_str());
+}
 
 std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 {
@@ -51,7 +79,7 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 					
 			if (c == '[')
 			{
-				if (newTag == nullptr) throw "Syntax error in tags: Unexpected character [";
+				if (newTag == nullptr) tagQuerySyntaxError(str, i, "Syntax error in tag list: Unexpected character [");
 				stack.push_back(newTag);
 			}
 			else if (c == ']')
@@ -113,7 +141,7 @@ std::string readTagName(const std::string& str, int& pos)
 		}
 	}
 
-	if (lastNonWhitespace == -1) throw "Failed to parse tag query: expected tag name at pos " + std::to_string(startPos) + " in:\r\n" + str;
+	if (lastNonWhitespace == -1) tagQuerySyntaxError(str, startPos, "Syntax error in tag query: expected tag name");
 
 	//std::cout << "end: startPos=" << startPos << " lastNonWhitespace=" << lastNonWhitespace << "\r\n";
 
@@ -173,12 +201,13 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 	// TagQueryType::WITHIN_NOT = ( TAG_QUERY )
 	if (str[pos] == '(')
 	{
+		int openingBracketPos = pos;
 		pos++;
 
 		std::shared_ptr<TagQuery> ret = _parseTagQuery(str, pos, depth+1);
 		skipWhitespace(str, pos);
 
-		if (str[pos] != ')') throw "Syntax error in tag query: unmatched opening bracket, at character " + std::to_string(pos) + " '" + str[pos] + "' " + std::to_string((int)str[pos]);
+		if (str[pos] != ')') tagQuerySyntaxError(str, openingBracketPos, pos, "Syntax error in tag query: ( not closed with )");
 		pos++;
 
 		return ret;
@@ -201,12 +230,13 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 		
 		if (str[pos] == '[')
 		{
+			int openingBracketPos = pos;
 			pos++;
 			skipWhitespace(str, pos);
 			std::shared_ptr<TagQuery> query = _parseTagQuery(str, pos, depth+1);
 			skipWhitespace(str, pos);
 
-			if (str[pos] != ']') throw "Syntax in tag query: [ unmatched with ]";
+			if (str[pos] != ']') tagQuerySyntaxError(str, openingBracketPos, pos, "Syntax error in tag query: [ not closed with ]");
 			pos++;
 
 			// TagQueryType::WITHIN_NOT = ~ TAG_NAME [ TAG_QUERY ]
@@ -219,7 +249,7 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 			// TagQueryType::WITHIN_NOT = TAG_NAME [ TAG_QUERY ]
 			else
 			{
-				//std::cout << "parseTagQueryWithinNot returning TagQuery_HasChildTagWithQuery(" << tagName << ")\r\n";
+				if (DEBUGGING) std::cout << "parseTagQueryWithinNot returning TagQuery_HasChildTagWithQuery(" << tagName << ")\r\n";
 				return std::make_shared<TagQuery_HasChildTagWithQuery>(tagName, query);
 			}
 		}
@@ -340,7 +370,7 @@ std::shared_ptr<TagQuery> parseTagQuery(const std::string& str)
 	skipWhitespace(str, pos);
 	if (pos != str.size())
 	{
-		throw std::string("Unexpected string after tag query: ") + str.substr(pos);
+		tagQuerySyntaxError(str, pos, "Syntax error in tag query: Unexpected character");
 	}
 	return ret;
 }
