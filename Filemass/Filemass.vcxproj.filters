@@ -45,6 +45,12 @@
     <ClCompile Include="json.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tag_query.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tag_query_parser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sqlite3.h">
@@ -75,6 +81,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="json.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tag_query.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tag_query_parser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

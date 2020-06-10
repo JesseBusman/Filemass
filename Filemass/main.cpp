@@ -17,7 +17,9 @@
 #include "sha256.h"
 #include "repository.h"
 #include "tag.h"
+#include "tag_query.h"
 #include "tag_parser.h"
+#include "tag_query_parser.h"
 #include "path_pattern.h"
 #include "json.h"
 

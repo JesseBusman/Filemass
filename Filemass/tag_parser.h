@@ -7,4 +7,3 @@
 #include "tag.h"
 
 std::vector<std::shared_ptr<Tag>> parseTag(std::string str);
-std::shared_ptr<TagQuery> parseTagQuery(const std::string& str);

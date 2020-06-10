@@ -148,6 +148,8 @@
     <ClCompile Include="sqlite3.c" />
     <ClCompile Include="tag.cpp" />
     <ClCompile Include="tag_parser.cpp" />
+    <ClCompile Include="tag_query.cpp" />
+    <ClCompile Include="tag_query_parser.cpp" />
     <ClCompile Include="util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -160,6 +162,8 @@
     <ClInclude Include="sqlite3ext.h" />
     <ClInclude Include="tag.h" />
     <ClInclude Include="tag_parser.h" />
+    <ClInclude Include="tag_query.h" />
+    <ClInclude Include="tag_query_parser.h" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
