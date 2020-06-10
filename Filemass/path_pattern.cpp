@@ -54,7 +54,7 @@ std::string PathPattern_DirectoriesThatMatch::toString()
 std::string PathPattern_Union::toString()
 {
 	std::string ret = "";
-	for (int i=0; i<this->patterns.size(); i++)
+	for (size_t i=0; i<this->patterns.size(); i++)
 	{
 		if (i != 0) ret += ',';
 		ret += this->patterns[i]->toString();
@@ -168,7 +168,7 @@ void PathPattern_AlsoCheckSubDirectoriesRecursively::findFiles(const std::string
 
 std::string readPatternPathSegment(const std::string& str, int& pos)
 {
-	std::cout << "readPatternPathSegment(" << str.substr(pos) << ")";
+	if (DEBUGGING) std::cout << "readPatternPathSegment(" << str.substr(pos) << ")";
 
 	const int startPos = pos;
 	while (pos < str.length() && str[pos] != '\\' && str[pos] != '/' && str[pos] != ',')
@@ -176,14 +176,14 @@ std::string readPatternPathSegment(const std::string& str, int& pos)
 		pos++;
 	}
 
-	if (pos == startPos) throw "readPatternPathSegment failed";
+	if (pos == startPos) exitWithError("readPatternPathSegment failed");
 
 	return str.substr(startPos, pos-startPos);
 }
 
 std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos, bool isFirstSegment)
 {
-	std::cout << "_parsePathPattern(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "_parsePathPattern(" << str.substr(pos) << ")\r\n";
 
 	bool absolutePath = false;
 	std::string absolutePathPrefix;
@@ -199,24 +199,24 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos,
 		else
 		{
 			absolutePathPrefix = readPatternPathSegment(str, pos);
-			std::cout << "absolutePathPrefix=" << absolutePathPrefix << "\r\n";
+			if (DEBUGGING) std::cout << "absolutePathPrefix=" << absolutePathPrefix << "\r\n";
 			if (str[pos] == '/' || str[pos] == '\\')
 			{
 				pos++;
 			}
 			else
 			{
-				throw std::string("Expected / or \\, found '") + str[pos] + "'";
+				exitWithError(std::string("Expected / or \\, found '") + str[pos] + "'");
 			}
 
 			if (std::filesystem::path(absolutePathPrefix + "/").is_absolute())
 			{
-				std::cout << "'" << absolutePathPrefix << "' is absolute!\r\n";
+				if (DEBUGGING) std::cout << "'" << absolutePathPrefix << "' is absolute!\r\n";
 				absolutePath = true;
 			}
 			else
 			{
-				std::cout << "'" << absolutePathPrefix << "' is not absolute!\r\n";
+				if (DEBUGGING) std::cout << "'" << absolutePathPrefix << "' is not absolute!\r\n";
 				pos--;
 			}
 		}
@@ -224,12 +224,6 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos,
 
 	std::string patternSegment = readPatternPathSegment(str, pos);
 
-	
-	
-	/*
-	/hello
-	hello
-	*/
 	if (pos == str.length() || str[pos] == ',')
 	{
 		if (absolutePath) return std::make_shared<PathPattern_DirectoriesThatMatch>(absolutePathPrefix, std::make_shared<PathPattern_FilesThatMatch>(patternSegment), true);
@@ -237,10 +231,6 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos,
 	}
 	else
 	{
-		/*
-		/hello/bla
-		hello/bla
-		*/
 		if (str[pos] == '/' || str[pos] == '\\')
 		{
 			pos++;
@@ -258,14 +248,15 @@ std::shared_ptr<PathPattern> _parsePathPattern(const std::string& str, int& pos,
 		}
 		else
 		{
-			throw "wtffff 923848934 " + str + " " + std::to_string(pos);
+			exitWithError("wtffff 923848934 " + str + " " + std::to_string(pos));
+			return nullptr;
 		}
 	}
 }
 
 std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern)
 {
-	std::cout << "parsePathPattern(" << pattern << ")\r\n";
+	if (DEBUGGING) std::cout << "parsePathPattern(" << pattern << ")\r\n";
 
 	std::vector<std::shared_ptr<PathPattern>> patterns;
 	int pos = 0;
@@ -273,11 +264,11 @@ std::shared_ptr<PathPattern> parsePathPattern(const std::string& pattern)
 	{
 		patterns.push_back(_parsePathPattern(pattern, pos, true));
 		if (pos >= pattern.length()) break;
-		if (pattern[pos] != ',') throw "Unexpected char in pattern " + pattern + " " + pattern[pos];
+		if (pattern[pos] != ',') exitWithError("Unexpected char in pattern " + pattern + " " + pattern[pos]);
 		pos++;
 	}
 
-	std::cout << "parsePathPattern(" << pattern << ") done!\r\n";
+	if (DEBUGGING) std::cout << "parsePathPattern(" << pattern << ") done!\r\n";
 
 	if (patterns.size() == 1) return patterns[0];
 	else return std::make_shared<PathPattern_Union>(std::move(patterns));

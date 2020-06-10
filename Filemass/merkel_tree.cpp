@@ -21,7 +21,7 @@ void MerkelNode::calcHash()
 	else if (child0 == nullptr && child1 != nullptr)
 	{
 		//std::cout << "calcHash() null non-null\r\n";
-		throw "child0 == nullptr && child1 != nullptr";
+		exitWithError("child0 == nullptr && child1 != nullptr");
 	}
 	else if (child0 != nullptr && child1 == nullptr)
 	{
@@ -43,7 +43,7 @@ void MerkelNode::calcHash()
 		bytes_to_hex(this->hash, 32, &hex[0]);
 		//std::cout << "calcHash() on node with 2 children resulted in: " << hex << "\r\n";;
 	}
-	else throw "asgsddagsagds";
+	else exitWithError("asgsddagsagds");
 
 	//std::cout << "calcHash() done\r\n";
 
@@ -53,7 +53,7 @@ void MerkelNode::calcHash()
 void MerkelNode::tryCalcHashForgetChildren()
 {
 	if (this->hashWritten && this->childrenForgotten) return;
-	if (this->childrenForgotten) throw "tryCalcHashForgetChildren() called but childrenForgotten=true";
+	if (this->childrenForgotten) exitWithError("tryCalcHashForgetChildren() called but childrenForgotten=true");
 	if (this->level != 0)
 	{
 		if (this->child0 == nullptr || this->child1 == nullptr) return;
@@ -96,13 +96,13 @@ MerkelTree::MerkelTree()
 }
 long MerkelTree::getTotalBytes()
 {
-	if (!finalized) throw("getTotalBytes() called on non-finalized merkel tree");
+	if (!finalized) exitWithError("getTotalBytes() called on non-finalized merkel tree");
 	return totalBytes;
 }
 void MerkelTree::finalize()
 {
 	// std::cout << "Finalize running calcHash()\r\n";
-	if (finalized) throw("finalize() called on already finalized merkel tree");
+	if (finalized) exitWithError("finalize() called on already finalized merkel tree");
 	rootMerkelNode->calcHash();
 	memcpy(&this->hash[0], &rootMerkelNode->hash[0], 32);
 	finalized = true;
@@ -112,12 +112,12 @@ void MerkelTree::addData(const char* data, int amountBytes)
 {
 	//std::cout << "addData() called with " << amountBytes << " bytes\r\n";
 
-	if (finalized) throw("Cannot addData to finalized merkel tree");
-	else if (amountBytes < 0) throw("addData amountBytes<0");
-	else if (seenNon1024segment) throw("Merkel tree saw a non-1024-byte segment already.");
+	if (finalized) exitWithError("Cannot addData to finalized merkel tree");
+	else if (amountBytes < 0) exitWithError("addData amountBytes<0");
+	else if (seenNon1024segment) exitWithError("Merkel tree saw a non-1024-byte segment already.");
 	else if (amountBytes == 1024) {}
 	else if (amountBytes < 1024) seenNon1024segment = true;
-	else throw "Merkel tree must only receive blocks of 1024 bytes, and optionally one last block less than 1024 bytes.";
+	else exitWithError("Merkel tree must only receive blocks of 1024 bytes, and optionally one last block less than 1024 bytes.");
 	
 	// Search upwards until we're at the finished root node, or we're at a node with < 2 children
 	while (true)
@@ -173,14 +173,14 @@ void MerkelTree::addData(const char* data, int amountBytes)
 		{
 			currentMerkelNode->child1 = newNode;
 		}
-		else throw "agjasjjkdsf";
+		else exitWithError("agjasjjkdsf");
 		currentMerkelNode = newNode;
 	}
 
 	//std::cout << "addData() after second loop: currentNode: level=" << currentMerkelNode->level << " child0=" << (currentMerkelNode->child0 == nullptr ? "null" : "val") << " child1=" << (currentMerkelNode->child1 == nullptr ? "null" : "val") << "\r\n";
 
 
-	if (currentMerkelNode->hashWritten) throw "Fatal bug in merkel tree: attempted to overwrite hash in node";
+	if (currentMerkelNode->hashWritten) exitWithError("Fatal bug in merkel tree: attempted to overwrite hash in node");
 
 
 

@@ -16,9 +16,7 @@ Repository::Repository(std::string _path) :
 	{
 		if (!std::filesystem::is_regular_file(config_file))
 		{
-			std::cout << "\r\nRepo config file found is not a regular file: " << config_file << "\r\n";
-			exit(1);
-			throw 1;
+			exitWithError("Repo config file found is not a regular file: " + config_file);
 		}
 
 		std::ifstream infile(config_file);
