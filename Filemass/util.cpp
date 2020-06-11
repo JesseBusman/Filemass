@@ -4,7 +4,6 @@
 #include <array>
 #include <map>
 #include <iostream>
-#include <sstream>
 
 #include "util.h"
 #include "sqlite3.h"
@@ -20,9 +19,7 @@ void exitWithError(const char* errorMessage)
 	if (arg_json)
 	{
 		jsonOutput.map["error"] = std::make_shared<JsonValue_String>(errorMessage);
-		std::stringstream str;
-		jsonOutput.write(str);
-		std::cout << str.rdbuf();
+		jsonOutput.write(std::cout);
 	}
 	else
 	{

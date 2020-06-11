@@ -433,13 +433,29 @@ int main(int argc, char* argv[])
 				else std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
 			}
 			
-			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes](const std::string& path){
+			long long amountOFilesAdded = 0;
+			long long amountOfNewFilesAdded = 0;
+
+			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes, &amountOFilesAdded, &amountOfNewFilesAdded](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
 				{
 					exitWithError("The file you're trying to add is not a regular file: " + path);
 				}
-				selected_file_hashes.push_back(selected_repository->add(path));
+				auto [hash, wasNewlyAdded] = selected_repository->add(path);
+				selected_file_hashes.push_back(hash);
+				amountOFilesAdded++;
+				if (wasNewlyAdded) amountOfNewFilesAdded++;
 			});
+
+			if (arg_json)
+			{
+				jsonOutput.set("filesAdded", amountOFilesAdded);
+				jsonOutput.set("newFilesAdded", amountOfNewFilesAdded);
+			}
+			else
+			{
+				std::cout << "Added " << amountOFilesAdded << " files to the repository, " << amountOfNewFilesAdded << " of which were new.\r\n"; 
+			}
 		}
 
 
@@ -587,9 +603,7 @@ int main(int argc, char* argv[])
 
 		if (arg_json)
 		{
-			std::stringstream str;
-			jsonOutput.write(str);
-			std::cout << str.rdbuf();
+			jsonOutput.write(std::cout);
 		}
 
 		return 0;

@@ -13,5 +13,5 @@ private:
 
 public:
 	Repository(std::string _path);
-	std::array<char, 32> add(std::string _path);
+	std::pair<std::array<char, 32>, bool> add(std::string _path);
 };

@@ -46,7 +46,7 @@ Repository::Repository(std::string _path) :
 	}
 }
 
-std::array<char, 32> Repository::add(std::string _path)
+std::pair<std::array<char, 32>, bool> Repository::add(std::string _path)
 {
 	if (!std::filesystem::exists(_path)) exitWithError("File does not exist: " + _path);
 	if (!std::filesystem::is_regular_file(_path)) exitWithError("File is not a regular file: " + _path);
@@ -76,11 +76,12 @@ std::array<char, 32> Repository::add(std::string _path)
 	}
 	file.close();
 
-	std::array<char, 32> hash;
+	
 	//hasher.final((unsigned char*)&hash[0]);
 	merkelTree.finalize();
 	//memcpy(hash, merkelTree.hash, 32);
-	for (int i = 0; i < 32; i++) hash[i] = merkelTree.hash[i];
+
+	std::array<char, 32> hash = *merkelTree.hash;
 	
 	std::string hashHex = bytes_to_hex(hash);
 
@@ -98,22 +99,32 @@ std::array<char, 32> Repository::add(std::string _path)
 	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
 	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
+	bool wasNew = false;
+
 	destPath += "/" + hashHex;
 	if (std::filesystem::exists(destPath))
 	{
 		if (std::filesystem::file_size(destPath) == std::filesystem::file_size(_path))
 		{
 			if (DEBUGGING) std::cout << "File " << _path << " already exists at " << destPath << "\r\n";
+			wasNew = false;
 		}
 		else
 		{
 			exitWithError("File " + _path + " already exists at " + destPath + ", but they have different sizes!");
 		}
 	}
-	else if (!std::filesystem::copy_file(_path, destPath))
+	else
 	{
-		exitWithError("Failed to copy file " + _path + " to " + destPath);
+		if (std::filesystem::copy_file(_path, destPath))
+		{
+			wasNew = true;
+		}
+		else
+		{
+			exitWithError("Failed to copy file " + _path + " to " + destPath);
+		}
 	}
 
-	return hash;
+	return {hash, wasNew};
 }
