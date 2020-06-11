@@ -187,11 +187,7 @@ void Tag::removeFrom(const std::array<char, 32>& destParentHashSum, sqlite3* tag
 
 	if (stepResult != SQLITE_DONE)
 	{
-		std::cout << "\r\n" << stepResult;
-		std::cout << "\r\nsqlite3_step did not return SQLITE_DONE on query DELETE FROM edges\r\n";
-		std::cout << sqlite3_errmsg(tagbase_db) << "\r\n";
-		exit(1);
-		throw 1;
+		exitWithError("sqlite3_step did not return SQLITE_DONE on query DELETE FROM edges (" + std::to_string(stepResult) + ": " + sqlite3_errmsg(tagbase_db));
 	}
 	
 	for (auto subtag : this->subtags)
@@ -206,7 +202,7 @@ void Tag::addTo(const std::array<char, 32>& destParentHashSum, const std::array<
 		q(tagbase_db, "BEGIN TRANSACTION");
 	}
 
-	if (DEBUGGING) std::cout << bytes_to_hex(*thisHash) << "->addTo(" << bytes_to_hex(destParentHashSum) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag::addTo] " << bytes_to_hex(*thisHash) << "->addTo(" << bytes_to_hex(destParentHashSum) << ")\r\n";
 
 	if (this->name->length() < 65536)
 	{

@@ -97,10 +97,10 @@ void PathPattern::findFiles(const std::string&, std::function<void(const std::st
 
 void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
-	if (DEBUGGING) std::cout << "PathPattern_DirectoriesThatMatch in " << baseDirectory << " on " << this->str << "\r\n";
+	if (DEBUGGING) std::cout << "[findFiles] PathPattern_DirectoriesThatMatch in::findFiles " << baseDirectory << " on " << this->str << "\r\n";
 	if (this->absolutePath)
 	{
-		if (DEBUGGING) std::cout << "PathPattern_DirectoriesThatMatch::findFiles: " << this->str << " is an absolute path!\r\n";
+		if (DEBUGGING) std::cout << "[findFiles] PathPattern_DirectoriesThatMatch::findFiles: " << this->str << " is an absolute path!\r\n";
 		this->subPattern->findFiles(this->str, callback);
 	}
 	else
@@ -129,7 +129,7 @@ void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirector
 				if (!entry.is_directory()) continue;
 
 				const std::string& dir = entry.path().filename().string();
-				if (DEBUGGING) std::cout << dir << "\r\n";
+				if (DEBUGGING) std::cout << "[findFiles] " << dir << "\r\n";
 				if (pathSegment_matches_patternSegment(dir, this->str))
 				{
 					if (baseDirectory.back() != '/' && baseDirectory.back() != '\\') this->subPattern->findFiles(baseDirectory + "/" + dir, callback);
@@ -150,7 +150,7 @@ void PathPattern_Union::findFiles(const std::string& baseDirectory, std::functio
 
 void PathPattern_FilesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
-	if (DEBUGGING) std::cout << "PathPattern_FilesThatMatch::findFiles(" << baseDirectory << ") on " << this->str << "\r\n";
+	if (DEBUGGING) std::cout << "[findFiles] PathPattern_FilesThatMatch::findFiles(" << baseDirectory << ") on " << this->str << "\r\n";
 
 	if (!std::filesystem::exists(baseDirectory))
 	{

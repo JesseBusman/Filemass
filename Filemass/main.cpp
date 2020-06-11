@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
-				std::cout << "Initialized repository at " << selected_repository_path << "\r\n";
+				std::cout << "[--init-repo] Initialized repository at " << selected_repository_path << "\r\n";
 			}
 		}
 
@@ -377,7 +377,7 @@ int main(int argc, char* argv[])
 			if (DEBUGGING)
 			{
 				if (arg_json) jsonOutput.set("_debug_pathPattern", pathPattern->toString());
-				else std::cout << "pathPattern = " << pathPattern->toString() << "\r\n";
+				else std::cout << "[--add-files] pathPattern = " << pathPattern->toString() << "\r\n";
 			}
 			
 			long long amountOFilesAdded = 0;
@@ -507,7 +507,7 @@ int main(int argc, char* argv[])
 
 			std::shared_ptr<TagQuery> tagQuery = parseTagQuery(*arg_tags);
 
-			if (DEBUGGING) std::cout << "Tag query: " << tagQuery->toString() << "\r\n";
+			if (DEBUGGING) std::cout << "[--tags] Tag query: " << tagQuery->toString() << "\r\n";
 			
 			std::map<std::array<char, 32>, bool> fileHashes;
 			tagQuery->findIn(ZERO_HASH, fileHashes, tagbase_db);

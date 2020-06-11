@@ -37,7 +37,7 @@ void skipWhitespace(const std::string& str, int& pos)
 		pos++;
 	}
 
-	//std::cout << "after skipWhitespace(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] after skipWhitespace(" << str.substr(pos) << ")\r\n";
 }
 
 void tagQuerySyntaxError(const std::string& str, int pos1, int pos2, const char* msg)
@@ -72,7 +72,7 @@ std::shared_ptr<TagQuery> _parseTagQuery(const std::string& str, int& pos, int d
 
 std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& pos, int depth)
 {
-	//std::cout << "parseTagQueryWithinNot(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinNot(" << str.substr(pos) << ")\r\n";
 
 	skipWhitespace(str, pos);
 
@@ -120,14 +120,14 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 			// TagQueryType::WITHIN_NOT = ~ TAG_NAME [ TAG_QUERY ]
 			if (tilda)
 			{
-				//std::cout << "parseTagQueryWithinNot returning TagQuery_HasDescendantTagWithQuery(" << tagName << ")\r\n";
+				if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinNot returning TagQuery_HasDescendantTagWithQuery(" << tagName << ")\r\n";
 				return std::make_shared<TagQuery_HasDescendantTagWithQuery>(tagName, query);
 			}
 
 			// TagQueryType::WITHIN_NOT = TAG_NAME [ TAG_QUERY ]
 			else
 			{
-				if (DEBUGGING) std::cout << "parseTagQueryWithinNot returning TagQuery_HasChildTagWithQuery(" << tagName << ")\r\n";
+				if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinNot returning TagQuery_HasChildTagWithQuery(" << tagName << ")\r\n";
 				return std::make_shared<TagQuery_HasChildTagWithQuery>(tagName, query);
 			}
 		}
@@ -135,14 +135,14 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 		// TagQueryType::WITHIN_NOT = ~ TAG_NAME
 		else if (tilda)
 		{
-			//std::cout << "parseTagQueryWithinNot returning TagQuery_HasDescendantTag(" << tagName << ")\r\n";
+			if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinNot returning TagQuery_HasDescendantTag(" << tagName << ")\r\n";
 			return std::make_shared<TagQuery_HasDescendantTag>(tagName);
 		}
 
 		// TagQueryType::WITHIN_NOT = TAG_NAME
 		else
 		{
-			//std::cout << "parseTagQueryWithinNot returning TagQuery_HasChildTag(" << tagName << ")\r\n";
+			if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinNot returning TagQuery_HasChildTag(" << tagName << ")\r\n";
 			return std::make_shared<TagQuery_HasChildTag>(tagName);
 		}
 	}
@@ -150,33 +150,33 @@ std::shared_ptr<TagQuery> parseTagQueryWithinNot(const std::string& str, int& po
 
 std::shared_ptr<TagQuery> parseTagQueryWithinAnd(const std::string& str, int& pos, int depth)
 {
-	//std::cout << "parseTagQueryWithinAnd(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinAnd(" << str.substr(pos) << ")\r\n";
 
 	skipWhitespace(str, pos);
 	if (str[pos] == '!')
 	{
 		pos++;
 		std::shared_ptr<TagQuery> subQuery = parseTagQueryWithinNot(str, pos, depth+1);
-		//std::cout << "parseTagQueryWithinAnd returning TagQuery_Not\r\n";
+		if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinAnd returning TagQuery_Not\r\n";
 		return std::make_shared<TagQuery_Not>(subQuery);
 	}
 	else
 	{
-		//std::cout << "parseTagQueryWithinAnd calling parseTagQueryWithinNot\r\n";
+		if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinAnd calling parseTagQueryWithinNot\r\n";
 		return parseTagQueryWithinNot(str, pos, depth+1);
 	}
 }
 
 std::shared_ptr<TagQuery> parseTagQueryWithinXor(const std::string& str, int& pos, int depth)
 {
-	//std::cout << "parseTagQueryWithinXor(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinXor(" << str.substr(pos) << ")\r\n";
 
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	skipWhitespace(str, pos);
 	operands.push_back(parseTagQueryWithinAnd(str, pos, depth+1));
 	skipWhitespace(str, pos);
 
-	//std::cout << "parseTagQueryWithinXor parsed one operand, remaining: " << str.substr(pos) << "\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinXor parsed one operand, remaining: " << str.substr(pos) << "\r\n";
 
 	while (str[pos] == '&')
 	{
@@ -197,7 +197,7 @@ std::shared_ptr<TagQuery> parseTagQueryWithinXor(const std::string& str, int& po
 
 std::shared_ptr<TagQuery> parseTagQueryWithinOr(const std::string& str, int& pos, int depth)
 {
-	//std::cout << "parseTagQueryWithinOr(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] parseTagQueryWithinOr(" << str.substr(pos) << ")\r\n";
 
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	skipWhitespace(str, pos);
@@ -222,7 +222,7 @@ std::shared_ptr<TagQuery> parseTagQueryWithinOr(const std::string& str, int& pos
 
 std::shared_ptr<TagQuery> _parseTagQuery(const std::string& str, int& pos, int depth)
 {
-	//std::cout << "_parseTagQuery(" << str.substr(pos) << ")\r\n";
+	if (DEBUGGING) std::cout << "[Tag Query Parser] _parseTagQuery(" << str.substr(pos) << ")\r\n";
 
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	skipWhitespace(str, pos);

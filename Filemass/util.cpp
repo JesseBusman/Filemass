@@ -43,7 +43,7 @@ sqlite3_stmt* p(sqlite3* db, const char* query)
 			int ret = sqlite3_reset(it->second);
 			if (ret != SQLITE_OK)
 			{
-				std::cout << "\r\nsqlite3_reset was not OK: " << std::to_string(ret) << "\r\n" << query << "\r\n";
+				if (DEBUGGING) std::cout << "[Prepare query] sqlite3_reset was not OK: " << std::to_string(ret) << ": " << query << "\r\n";
 				sqlite3_finalize(it->second);
 			}
 			else
@@ -56,10 +56,7 @@ sqlite3_stmt* p(sqlite3* db, const char* query)
 	int prepareResult = sqlite3_prepare_v2(db, query, strlen(query), &stmt, nullptr);
 	if (prepareResult != SQLITE_OK)
 	{
-		std::cout << "\r\nsqlite3_prepare_v2 returned error " << prepareResult << " on query " << query << "\r\n";
-		std::cout << sqlite3_errmsg(db) << "\r\n";
-		exit(1);
-		throw 1;
+		exitWithError("sqlite3_prepare_v2 returned error " + std::to_string(prepareResult) + " on query " + query + ": " + sqlite3_errmsg(db));
 	}
 	query_to_stmt[query] = stmt;
 	return stmt;
@@ -70,10 +67,7 @@ void q(sqlite3* db, const char* query)
 	int stepResult = sqlite3_step(p(db, query));
 	if (stepResult != SQLITE_DONE)
 	{
-		std::cerr << "\r\nsqlite3_step did not return SQLITE_DONE on query " << query << "\r\n";
-		std::cerr << sqlite3_errmsg(db) << "\r\n";
-		exit(1);
-		throw 1;
+		exitWithError("sqlite3_step did not return SQLITE_DONE on query " + std::string(query) + ": " + sqlite3_errmsg(db));
 	}
 }
 
@@ -160,21 +154,6 @@ void non_commutative__non_associative__hash_sum(const unsigned char* hash1, cons
 
 	add256bit(outHash, hash2);
 }
-/*
-void reverse__non_commutative__non_associative__hash_sum(const unsigned char* hash1, const unsigned char* hash2, unsigned char* outHash)
-{
-	const unsigned char CONSTANT[] = {
-		0x60, 0xeb, 0xdf, 0x09, 0xe0, 0x93, 0x2a, 0x53, 0xb0, 0xa2, 0x1c, 0x4f, 0x84, 0xa0, 0x93, 0x66,
-		0xad, 0x4c, 0x78, 0x1a, 0xef, 0xd3, 0x07, 0x19, 0xa1, 0x07, 0x28, 0xe5, 0x30, 0x8c, 0x48, 0x80,
-	};
-
-	for (int i=0; i<32; i++) outHash[i] = hash1[i] ^ CONSTANT[i];
-
-	xor256bit(outHash, CONSTANT);
-
-	add256bit(outHash, hash2);
-}
-*/
 
 std::array<char, 32> non_commutative__non_associative__hash_sum(const std::array<char, 32>& hash1, const std::array<char, 32>& hash2)
 {
