@@ -23,7 +23,7 @@ void writeSpaces(std::ostream& stream, int n)
 	for (int i=0; i<n; i++) stream << ' ';
 }
 
-void JsonValue::write(std::ostream&, int, bool)
+void JsonValue::write(std::ostream&, int, bool) const
 {
 	throw 234923849;
 }
@@ -56,17 +56,17 @@ JsonValue_Array::JsonValue_Array():
 }
 
 
-void JsonValue_String::write(std::ostream& stream, int, bool)
+void JsonValue_String::write(std::ostream& stream, int, bool) const
 {
 	writeString(stream, this->str);
 }
 
-void JsonValue_Integer::write(std::ostream& stream, int, bool)
+void JsonValue_Integer::write(std::ostream& stream, int, bool) const
 {
 	stream << this->i;
 }
 
-void JsonValue_Map::write(std::ostream& stream, int depth, bool prefixSpaces)
+void JsonValue_Map::write(std::ostream& stream, int depth, bool prefixSpaces) const
 {
 	if (prefixSpaces) writeSpaces(stream, depth); stream << "{\r\n";
 	bool first = true;
@@ -95,7 +95,7 @@ void JsonValue_Map::set(const std::string& key, std::shared_ptr<JsonValue> value
 	this->map[key] = value;
 }
 
-void JsonValue_Array::write(std::ostream& stream, int depth, bool prefixSpaces)
+void JsonValue_Array::write(std::ostream& stream, int depth, bool prefixSpaces) const
 {
 	if (prefixSpaces) writeSpaces(stream, depth); stream << "[\r\n";
 	for (auto const& value : this->array)

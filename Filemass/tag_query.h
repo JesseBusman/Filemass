@@ -25,10 +25,10 @@ class TagQuery
 public:
 	TagQueryType type;
 	TagQuery(TagQueryType _type);
-	void findIn(const std::array<char, 32>& parentHashSum, std::map<std::array<char, 32>, bool>& result, sqlite3* tagbase_db);
-	bool matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db);
-	long long quickCount(sqlite3* tagbase_db);
-	virtual std::string toString();
+	void findIn(const std::array<char, 32>& parentHashSum, std::map<std::array<char, 32>, bool>& result, sqlite3* tagbase_db) const;
+	bool matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db) const;
+	long long quickCount(sqlite3* tagbase_db) const;
+	virtual std::string toString() const;
 };
 
 class TagQuery_Or : public TagQuery
@@ -36,7 +36,7 @@ class TagQuery_Or : public TagQuery
 public:
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	TagQuery_Or(const std::vector<std::shared_ptr<TagQuery>>& _operands);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_And : public TagQuery
@@ -44,7 +44,7 @@ class TagQuery_And : public TagQuery
 public:
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	TagQuery_And(const std::vector<std::shared_ptr<TagQuery>>& _operands);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_Xor : public TagQuery
@@ -52,7 +52,7 @@ class TagQuery_Xor : public TagQuery
 public:
 	std::vector<std::shared_ptr<TagQuery>> operands;
 	TagQuery_Xor(const std::vector<std::shared_ptr<TagQuery>>& _operands);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_Not : public TagQuery
@@ -60,7 +60,7 @@ class TagQuery_Not : public TagQuery
 public:
 	std::shared_ptr<TagQuery> subQuery;
 	TagQuery_Not(const std::shared_ptr<TagQuery>& _subQuery);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_HasTag : public TagQuery
@@ -75,14 +75,14 @@ class TagQuery_HasChildTag : public TagQuery_HasTag
 {
 public:
 	TagQuery_HasChildTag(const std::string& _tagName);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_HasDescendantTag : public TagQuery_HasTag
 {
 public:
 	TagQuery_HasDescendantTag(const std::string& _tagName);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_HasChildTagWithQuery : public TagQuery_HasTag
@@ -90,7 +90,7 @@ class TagQuery_HasChildTagWithQuery : public TagQuery_HasTag
 public:
 	std::shared_ptr<TagQuery> query;
 	TagQuery_HasChildTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };
 
 class TagQuery_HasDescendantTagWithQuery : public TagQuery_HasTag
@@ -98,5 +98,5 @@ class TagQuery_HasDescendantTagWithQuery : public TagQuery_HasTag
 public:
 	std::shared_ptr<TagQuery> query;
 	TagQuery_HasDescendantTagWithQuery(const std::string& _tagName, const std::shared_ptr<TagQuery>& _query);
-	virtual std::string toString();
+	virtual std::string toString() const;
 };

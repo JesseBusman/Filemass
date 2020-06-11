@@ -94,7 +94,7 @@ long MerkelNode::calcDataSize()
 	else return this->dataSize = child0->calcDataSize() + child1->calcDataSize();
 }
 
-bool MerkelNode::isFull()
+bool MerkelNode::isFull() const
 {
 	if (level == 0) return false; //this->dataSize >= 1;
 	else return this->hash.has_value() || (child0 != nullptr && child1 != nullptr && child0->isFull() && child1->isFull());
@@ -106,7 +106,7 @@ MerkelTree::MerkelTree()
 	seenNon1024segment = false;
 	totalBytes = 0;
 }
-long MerkelTree::getTotalBytes()
+long MerkelTree::getTotalBytes() const
 {
 	if (!this->hash.has_value()) exitWithError("getTotalBytes() called on non-finalized merkel tree");
 	return totalBytes;

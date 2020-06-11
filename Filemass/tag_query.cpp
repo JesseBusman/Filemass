@@ -9,7 +9,7 @@
 #include "tag_query.h"
 #include "sha256.h"
 
-bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
+bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db) const
 {
 	if (this->type == TagQueryType::HAS_CHILD)
 	{
@@ -150,7 +150,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 	}
 }
 
-void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::array<char, 32>, bool>& result, sqlite3* tagbase_db)
+void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::array<char, 32>, bool>& result, sqlite3* tagbase_db) const
 {
 	if (this->type == TagQueryType::HAS_CHILD)
 	{
@@ -466,7 +466,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 	}
 }
 
-long long TagQuery::quickCount(sqlite3* tagbase_db)
+long long TagQuery::quickCount(sqlite3* tagbase_db) const
 {
 	if (this->type == TagQueryType::HAS_CHILD || this->type == TagQueryType::HAS_DESCENDANT || this->type == TagQueryType::HAS_CHILD_WITH_QUERY)
 	{
@@ -583,12 +583,12 @@ TagQuery_HasDescendantTagWithQuery::TagQuery_HasDescendantTagWithQuery(const std
 {
 }
 
-std::string TagQuery::toString()
+std::string TagQuery::toString() const
 {
 	return "UNKNOWN_QUERY";
 }
 
-std::string TagQuery_Or::toString()
+std::string TagQuery_Or::toString() const
 {
 	std::string ret = "";
 	for (size_t i=0; i<this->operands.size(); i++)
@@ -599,7 +599,7 @@ std::string TagQuery_Or::toString()
 	return ret;
 }
 
-std::string TagQuery_And::toString()
+std::string TagQuery_And::toString() const
 {
 	std::string ret = "";
 	for (size_t i=0; i<this->operands.size(); i++)
@@ -610,7 +610,7 @@ std::string TagQuery_And::toString()
 	return ret;
 }
 
-std::string TagQuery_Xor::toString()
+std::string TagQuery_Xor::toString() const
 {
 	std::string ret = "";
 	for (size_t i=0; i<this->operands.size(); i++)
@@ -621,28 +621,28 @@ std::string TagQuery_Xor::toString()
 	return ret;
 }
 
-std::string TagQuery_Not::toString()
+std::string TagQuery_Not::toString() const
 {
 	return "! " + this->subQuery->toString();
 }
 
-std::string TagQuery_HasChildTag::toString()
+std::string TagQuery_HasChildTag::toString() const
 {
 	return std::string(this->tagName);
 }
 
-std::string TagQuery_HasDescendantTag::toString()
+std::string TagQuery_HasDescendantTag::toString() const
 {
 	return "~ " + std::string(this->tagName);
 }
 
-std::string TagQuery_HasChildTagWithQuery::toString()
+std::string TagQuery_HasChildTagWithQuery::toString() const
 {
 	if (DEBUGGING) std::cout << "tagname=" << this->tagName << " length=" << this->tagName.length() << "\r\n";
 	return std::string(this->tagName) + "[" + this->query->toString() + "]";
 }
 
-std::string TagQuery_HasDescendantTagWithQuery::toString()
+std::string TagQuery_HasDescendantTagWithQuery::toString() const
 {
 	return "~ " + std::string(this->tagName) + "[" + this->query->toString() + "]";
 }

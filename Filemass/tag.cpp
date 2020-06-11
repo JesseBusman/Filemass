@@ -90,7 +90,7 @@ Tag::Tag(const std::string& _name):
 	hasher.final((unsigned char*)thisHash->data());
 }
 
-std::string Tag::toString()
+std::string Tag::toString() const
 {
 	std::string ret;
 	if (this->name.has_value()) ret = *this->name;
@@ -109,7 +109,7 @@ std::string Tag::toString()
 	return ret;
 }
 
-std::shared_ptr<JsonValue_Map> Tag::toJSON()
+std::shared_ptr<JsonValue_Map> Tag::toJSON() const
 {
 	std::shared_ptr<JsonValue_Map> map = std::make_shared<JsonValue_Map>();
 	if (this->name.has_value()) map->set("name", *this->name);
@@ -128,7 +128,7 @@ std::shared_ptr<JsonValue_Map> Tag::toJSON()
 	return map;
 }
 
-void Tag::debugPrint(int depth)
+void Tag::debugPrint(int depth) const
 {
 	auto printSpaces = [](int n){for (int i=0; i<n; i++)std::cout << ' ';};
 

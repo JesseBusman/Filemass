@@ -56,17 +56,17 @@ bool pathSegment_matches_patternSegment(const std::string& pathSegment, const st
 
 
 
-std::string PathPattern::toString()
+std::string PathPattern::toString() const
 {
 	throw "default PathPattern::toString should never be called.";
 }
 
-std::string PathPattern_DirectoriesThatMatch::toString()
+std::string PathPattern_DirectoriesThatMatch::toString() const
 {
 	return "dir[" + this->str + "] => " + this->subPattern->toString();
 }
 
-std::string PathPattern_Union::toString()
+std::string PathPattern_Union::toString() const
 {
 	std::string ret = "";
 	for (size_t i=0; i<this->patterns.size(); i++)
@@ -77,12 +77,12 @@ std::string PathPattern_Union::toString()
 	return ret;
 }
 
-std::string PathPattern_FilesThatMatch::toString()
+std::string PathPattern_FilesThatMatch::toString() const
 {
 	return "file[" + this->str + "]";
 }
 
-std::string PathPattern_AlsoCheckSubDirectoriesRecursively::toString()
+std::string PathPattern_AlsoCheckSubDirectoriesRecursively::toString() const
 {
 	return "[search all subdirs recursively] => " + this->subPattern->toString();
 }
@@ -90,12 +90,12 @@ std::string PathPattern_AlsoCheckSubDirectoriesRecursively::toString()
 
 
 
-void PathPattern::findFiles(const std::string&, std::function<void(const std::string& path)>)
+void PathPattern::findFiles(const std::string&, std::function<void(const std::string& path)>) const
 {
 	throw "default PathPattern::findFiles should never be called.";
 }
 
-void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
+void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
 	if (DEBUGGING) std::cout << "PathPattern_DirectoriesThatMatch in " << baseDirectory << " on " << this->str << "\r\n";
 	if (this->absolutePath)
@@ -140,7 +140,7 @@ void PathPattern_DirectoriesThatMatch::findFiles(const std::string& baseDirector
 	}
 }
 
-void PathPattern_Union::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
+void PathPattern_Union::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
 	for (const auto& pattern : this->patterns)
 	{
@@ -148,7 +148,7 @@ void PathPattern_Union::findFiles(const std::string& baseDirectory, std::functio
 	}
 }
 
-void PathPattern_FilesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
+void PathPattern_FilesThatMatch::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
 	if (DEBUGGING) std::cout << "PathPattern_FilesThatMatch::findFiles(" << baseDirectory << ") on " << this->str << "\r\n";
 
@@ -177,7 +177,7 @@ void PathPattern_FilesThatMatch::findFiles(const std::string& baseDirectory, std
 	}
 }
 
-void PathPattern_AlsoCheckSubDirectoriesRecursively::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback)
+void PathPattern_AlsoCheckSubDirectoriesRecursively::findFiles(const std::string& baseDirectory, std::function<void(const std::string& path)> callback) const
 {
 	this->subPattern->findFiles(baseDirectory, callback);
 	for (const auto& entry : std::filesystem::recursive_directory_iterator(baseDirectory))

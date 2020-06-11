@@ -23,7 +23,7 @@ public:
 	
 	const std::array<char, 32>& getHash();
 	
-	bool isFull();
+	bool isFull() const;
 	long calcDataSize();
 };
 
@@ -37,7 +37,7 @@ private:
 public:
 	std::optional<std::array<char, 32>> hash;
 	MerkelTree();
-	long getTotalBytes();
+	long getTotalBytes() const;
 	void finalize();
 	void addData(const char* data, int amountBytes);
 };
