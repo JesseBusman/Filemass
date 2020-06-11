@@ -23,33 +23,14 @@
 #include "path_pattern.h"
 #include "json.h"
 
-/*
-Tag conventions:
-
-photo of 2 people (1 known, 1 unknown wearing an AC/DC t-shirt) standing in front of a castle:
-photo,person[name[Jesse Busman]],person[clothing[shirt[AC/DC]]],castle
-*/
-
 bool DEBUGGING = false;
 bool arg_json = false;
 JsonValue_Map jsonOutput;
-
-
-/*
-void exitWithErrorIfQueryFailed(int sqliteReturnCode)
-{
-	if (sqliteReturnCode != SQLITE_DONE && sqliteReturnCode != SQLITE_OK)
-	{
-
-	}
-}
-*/
 
 int main(int argc, char* argv[])
 {
 	for (int i=0; i<32; i++) ZERO_HASH[i] = 0x00;
 
-	//std::cout << "sha256(hello)=" << sha256("hello") << "\r\n";
 	try
 	{
 		if (argc == 1)
@@ -275,6 +256,8 @@ int main(int argc, char* argv[])
 			
 
 
+
+
 			q(
 				tagbase_db,
 				"CREATE TABLE edges"
@@ -306,6 +289,8 @@ int main(int argc, char* argv[])
 			
 
 
+
+
 			q(
 				tagbase_db,
 				"CREATE TABLE hashed_data"
@@ -316,30 +301,6 @@ int main(int argc, char* argv[])
 			);
 
 
-
-			/*
-			q(
-				tagbase_db,
-				"CREATE TABLE path_sums"
-				"("
-				"	file_hash BLOB NOT NULL,"
-				"	partial_hash_sum BLOB NOT NULL,"
-				"	start_hash_sum BLOB NOT NULL"
-				")"
-			);
-			q(
-				tagbase_db,
-				"CREATE INDEX path_sums__index_on__file_hash__partial_hash_sum__start_hash_sum ON path_sums (file_hash, partial_hash_sum, start_hash_sum)"
-			);
-			q(
-				tagbase_db,
-				"CREATE INDEX path_sums__index_on__partial_hash_sum__start_hash_sum ON path_sums (partial_hash_sum, start_hash_sum)"
-			);
-			q(
-				tagbase_db,
-				"CREATE INDEX path_sums__index_on__start_hash_sum__file_hash ON path_sums (start_hash_sum, file_hash)"
-			);
-			*/
 
 
 
@@ -358,6 +319,8 @@ int main(int argc, char* argv[])
 
 
 
+
+
 			q(
 				tagbase_db,
 				"CREATE TABLE child_hash_counts"
@@ -370,22 +333,6 @@ int main(int argc, char* argv[])
 				tagbase_db,
 				"CREATE INDEX child_hash_counts__index_on__child_hash ON child_hash_counts (child_hash)"
 			);
-
-
-
-			// In the case of:
-			// photo with file_hash AABB with tag person[Jesse Busman]
-			// 
-			
-			
-			/* ??
-			if (selected_repository == nullptr)
-			{
-				sqlite3_close(tagbase_db);
-				exit(0);
-				return 0;
-			}
-			*/
 		}
 
 
@@ -459,6 +406,11 @@ int main(int argc, char* argv[])
 		}
 
 
+
+
+
+		/////////////////////////////////////////////////////
+		//// --files
 
 		if (arg_files.has_value())
 		{

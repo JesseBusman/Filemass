@@ -63,10 +63,6 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 				i--;
 				continue;
 			}
-			else
-			{
-				//std::cout << "Added character " << c << " to tag\r\n";
-			}
 		}
 		else if (tagParserState == AFTER_TAG_NAME)
 		{
@@ -75,7 +71,6 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 			{
 				newTag = std::make_shared<Tag>(str.substr(currentTagNameStart, currentTagNameLength)); //std::string_view(&str.c_str()[currentTagNameStart], currentTagNameLength));
 				stack[stack.size()-1]->subtags.push_back(newTag);
-				//std::cout << "after_tag_name newTag=" << newTag->name << " c=" << c << "\r\n";
 
 				currentTagNameLength = -1;
 			}
@@ -98,18 +93,13 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 			}
 			else
 			{
-				//std::cout << "New tag name starts with " << c << "\r\n";
 				tagParserState = INSIDE_TAG_NAME;
 				currentTagNameStart = i;
 				currentTagNameLength = 0;
-				//std::cout << "\r\nSyntax error in tag list: Unexpected character " << c << "\r\n";
-				//exit(1);
-				//return 1;
 			}
 		}
 	}
 
-	//std::cout << "Parsed " << baseTag->subtags.size() << " tags:\r\n";
 	baseTag->debugPrint();
 
 	return baseTag->subtags;
@@ -117,14 +107,11 @@ std::vector<std::shared_ptr<Tag>> parseTag(std::string str)
 
 std::string readTagName(const std::string& str, int& pos)
 {
-	//std::cout << "readTagName(" << str.substr(pos) << ")\r\n";
-
 	int startPos = pos;
 	int lastNonWhitespace = -1;
 	
 	while (pos < str.size() && str[pos] != ',' && str[pos] != '[' && str[pos] != ']' && str[pos] != '&' && str[pos] != '|' && str[pos] != '^' && str[pos] != '!' && str[pos] != '~' && str[pos] != ')' && str[pos] != '(')
 	{
-		//std::cout << "char " << pos << " is '" << str[pos] << "'=" << ((int)str[pos]) << "\r\n";
 		if (str[pos] == ' ' || str[pos] == '\r' || str[pos] == '\t' || str[pos] == '\n')
 		{
 			if (pos == startPos)
@@ -146,9 +133,7 @@ std::string readTagName(const std::string& str, int& pos)
 
 	if (lastNonWhitespace == -1) tagListSyntaxError(str, startPos, "Syntax error: expected tag name");
 
-	//std::cout << "end: startPos=" << startPos << " lastNonWhitespace=" << lastNonWhitespace << "\r\n";
-
-	return str.substr(startPos, lastNonWhitespace - startPos + 1); //std::string_view(&str.c_str()[startPos], lastNonWhitespace - startPos + 1);
+	return str.substr(startPos, lastNonWhitespace - startPos + 1);
 }
 
 std::string repeat(char c, int n)

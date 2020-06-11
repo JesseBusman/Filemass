@@ -22,7 +22,6 @@ enum class TagQueryType
 
 class TagQuery
 {
-	//virtual void Save( std::ostream& ) const = 0;
 public:
 	TagQueryType type;
 	TagQuery(TagQueryType _type);

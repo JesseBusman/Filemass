@@ -46,62 +46,61 @@ Repository::Repository(std::string _path) :
 	}
 }
 
-std::pair<std::array<char, 32>, bool> Repository::add(std::string _path)
+std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 {
 	if (!std::filesystem::exists(_path)) exitWithError("File does not exist: " + _path);
 	if (!std::filesystem::is_regular_file(_path)) exitWithError("File is not a regular file: " + _path);
 	
-	//SHA256 hasher;
-	//hasher.init();
-	MerkelTree merkelTree;
+	std::array<char, 32> hash;
 
-	unsigned long fileSize = std::filesystem::file_size(_path);
-	unsigned long bytesRead = 0;
-
-	if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
-
-	std::ifstream file(_path, std::ios_base::binary);
-	char buff[1024];
-
-	while (bytesRead < fileSize)
 	{
-		int amountToRead;
-		if (bytesRead + 1024 <= fileSize) amountToRead = 1024;
-		else amountToRead = fileSize - bytesRead;
-		//std::cout << "Going to read " << amountToRead << " bytes from file...\r\n";
-		readExactly(file, &buff[0], amountToRead);
-		//hasher.update((unsigned char*)&buff[0], (unsigned int)file.gcount());
-		merkelTree.addData(&buff[0], amountToRead);
-		bytesRead += amountToRead;
+		MerkelTree merkelTree;
+		{
+			unsigned long fileSize = std::filesystem::file_size(_path);
+			unsigned long bytesRead = 0;
+
+			if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
+			std::ifstream file(_path, std::ios_base::binary);
+			char buff[1024];
+			while (bytesRead < fileSize)
+			{
+				int amountToRead;
+				if (bytesRead + 1024 <= fileSize) amountToRead = 1024;
+				else amountToRead = fileSize - bytesRead;
+				readExactly(file, &buff[0], amountToRead);
+				merkelTree.addData(&buff[0], amountToRead);
+				bytesRead += amountToRead;
+			}
+			file.close();
+		}
+		merkelTree.finalize();
+		hash = *merkelTree.hash;
 	}
-	file.close();
 
 	
-	//hasher.final((unsigned char*)&hash[0]);
-	merkelTree.finalize();
-	//memcpy(hash, merkelTree.hash, 32);
-
-	std::array<char, 32> hash = *merkelTree.hash;
-	
-	std::string hashHex = bytes_to_hex(hash);
 
 	std::string destPath = path;
+	{
+		std::string hashHex = bytes_to_hex(hash);
 
-	destPath += "/" + hashHex.substr(0, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
-	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
+		destPath += "/" + hashHex.substr(0, 2);
+		if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+		else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
-	destPath += "/" + hashHex.substr(2, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
-	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
+		destPath += "/" + hashHex.substr(2, 2);
+		if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+		else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
 
-	destPath += "/" + hashHex.substr(4, 2);
-	if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
-	else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
+		destPath += "/" + hashHex.substr(4, 2);
+		if (!std::filesystem::exists(destPath)) { if (!std::filesystem::create_directory(destPath)) exitWithError("Could not create directory: " + destPath); }
+		else if (!std::filesystem::is_directory(destPath)) exitWithError("Not a directory: " + destPath);
+
+		destPath += "/" + hashHex;
+	}
+
 
 	bool wasNew = false;
 
-	destPath += "/" + hashHex;
 	if (std::filesystem::exists(destPath))
 	{
 		if (std::filesystem::file_size(destPath) == std::filesystem::file_size(_path))

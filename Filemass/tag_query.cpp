@@ -11,7 +11,6 @@
 
 bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 {
-	//std::cout << "TagQuery::";
 	if (this->type == TagQueryType::HAS_CHILD)
 	{
 		const std::array<char, 32>& searchHash = ((TagQuery_HasChildTag*)this)->hash;
@@ -156,7 +155,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 	if (this->type == TagQueryType::HAS_CHILD)
 	{
 		std::array<char, 32> searchHash = ((TagQuery_HasChildTag*)this)->hash;
-		//std::cout << "TagQueryType::HAS_CHILD findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
+		if (DEBUGGING) std::cout << "TagQueryType::HAS_CHILD findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
 		sqlite3_stmt* stmt = p(
 			tagbase_db,
 			"SELECT parent_hash_sum FROM edges WHERE _this_hash=? AND _grandparent_hash_sum=?"
@@ -176,7 +175,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		if (parentHashSum == ZERO_HASH)
 		{
 			std::array<char, 32> searchHash = ((TagQuery_HasDescendantTag*)this)->hash;
-			//std::cout << "TagQueryType::HAS_DESCENDANT findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
+			if (DEBUGGING) std::cout << "TagQueryType::HAS_DESCENDANT findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
 			sqlite3_stmt* stmt = p(
 				tagbase_db,
 				"SELECT DISTINCT _file_hash FROM edges WHERE _this_hash=?"
@@ -279,16 +278,11 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 
 				// Now, fetch all files that do have a 'test'
 				{
-					//std::array<char, 32> thisHashSum = non_commutative__non_associative__hash_sum(parentHashSum, std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash);
-
-					//std::cout << "Looking for an edge with _this_hash=" << bytes_to_hex(std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash) << " and _grandparent_hash_sum=" << bytes_to_hex(thisHashSum) << "\r\n";
-
 					sqlite3_stmt* stmt = p(
 						tagbase_db,
 						"SELECT parent_hash_sum, hash_sum FROM edges WHERE _this_hash=?"
 					);
 					sqlite3_bind_blob(stmt, 1, std::dynamic_pointer_cast<TagQuery_HasChildTagWithQuery>(sub)->hash.data(), 32, SQLITE_STATIC);
-					//sqlite3_bind_blob(stmt, 1, thisHashSum.data(), 32, SQLITE_STATIC);
 
 					int stepResult;
 					std::vector<std::pair<std::array<char, 32>, std::array<char, 32>>> temp;
@@ -325,7 +319,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		std::array<char, 32> searchHash = ((TagQuery_HasChildTagWithQuery*)this)->hash;
 		std::shared_ptr<TagQuery> query = ((TagQuery_HasChildTagWithQuery*)this)->query;
 
-		//std::cout << "TagQueryType::HAS_CHILD_WITH_QUERY findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
+		if (DEBUGGING) std::cout << "TagQueryType::HAS_CHILD_WITH_QUERY findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
 
 		sqlite3_stmt* stmt = p(
 			tagbase_db,
@@ -356,7 +350,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 			std::array<char, 32> searchHash = ((TagQuery_HasChildTagWithQuery*)this)->hash;
 			std::shared_ptr<TagQuery> query = ((TagQuery_HasChildTagWithQuery*)this)->query;
 
-			//std::cout << "TagQueryType::HAS_CHILD_WITH_QUERY findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
+			if (DEBUGGING) std::cout << "TagQueryType::HAS_CHILD_WITH_QUERY findIn(" << bytes_to_hex(parentHashSum) << ") searchHash=" << bytes_to_hex(searchHash) << "\r\n";
 
 			sqlite3_stmt* stmt = p(
 				tagbase_db,
@@ -435,7 +429,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		long long operand0cardinality = operand_to_count.begin()->second;
 		long long operand1cardinality = (operand_to_count.begin()++)->second;
 
-		//std::cout << "TagQueryType::AND: operand0cardinality=" << operand0cardinality << " operand1cardinality=" << operand1cardinality << "\r\n";
+		if (DEBUGGING) std::cout << "TagQueryType::AND: operand0cardinality=" << operand0cardinality << " operand1cardinality=" << operand1cardinality << "\r\n";
 
 		//if (operand0cardinality < 1000)
 		{
@@ -528,16 +522,6 @@ long long TagQuery::quickCount(sqlite3* tagbase_db)
 		throw "patatje joppiesaus" + std::to_string((int)this->type);
 	}
 }
-
-/*
-int TagQuery::countTags(sqlite3* tagbase_db)
-{
-}
-
-int TagQuery::findTags(const std::array<char, 32>& fileHash, sqlite3* tagbase_db)
-{
-}
-*/
 
 TagQuery::TagQuery(TagQueryType _type):
 	type(_type)
