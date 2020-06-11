@@ -10,6 +10,31 @@ MerkelNode::MerkelNode(int _level, std::shared_ptr<MerkelNode> _parent):
 	parent(_parent)
 {
 }
+void MerkelNode::setData(const char* _data, int _amountBytes)
+{
+	if (this->level != 0) exitWithError("MerkelNode::setData, but node is not level 0");
+	if (this->dataSize != -1) exitWithError("MerkelNode::setData, but node already has data");
+	if (this->hash.has_value()) exitWithError("MerkelNode::setData, but node already has hash");
+
+	SHA256 sha256;
+	sha256.init();
+	sha256.update((const unsigned char*)&_data[0], _amountBytes);
+	this->hash = ZERO_HASH;
+	sha256.final((unsigned char*)this->hash->data());
+	this->dataSize = _amountBytes;
+}
+
+void MerkelNode::forgetChildrenIfFull()
+{
+	if (this->isFull())
+	{
+		this->getHash();
+		this->calcDataSize();
+		this->child0 = nullptr;
+		this->child1 = nullptr;
+		this->parent->forgetChildrenIfFull();
+	}
+}
 
 void MerkelNode::setChild0(std::shared_ptr<MerkelNode> _child0)
 {
@@ -21,53 +46,59 @@ void MerkelNode::setChild1(std::shared_ptr<MerkelNode> _child1)
 {
 	if (level == 0) exitWithError("setChild1 called on level 0");
 	this->child1 = _child1;
-	if (this->isFull()) this->getHash();
 }
 
 const std::array<char, 32>& MerkelNode::getHash()
 {
-	if (this->hash.has_value()) return *this->hash;
-
-	if (child0 == nullptr && child1 == nullptr)
+	if (level == 0)
 	{
-		this->hash = ZERO_HASH;
+		if (dataSize == 0) exitWithError("getHash() on level==0 && dataSize==0");
+		if (!this->hash.has_value()) exitWithError("getHash() on level==0 without hash");
+		return *this->hash;
 	}
-	else if (child0 == nullptr && child1 != nullptr)
+	else
 	{
-		exitWithError("child0 == nullptr && child1 != nullptr");
+		if (!this->hash.has_value())
+		{
+			if (child0 == nullptr && child1 == nullptr)
+			{
+				exitWithError("child0 == nullptr && child1 == nullptr");
+			}
+			else if (child0 == nullptr && child1 != nullptr)
+			{
+				exitWithError("child0 == nullptr && child1 != nullptr");
+			}
+			else if (child0 != nullptr && child1 == nullptr)
+			{
+				this->hash = child0->getHash();
+				this->child0 = nullptr;
+			}
+			else if (child0 != nullptr && child1 != nullptr)
+			{
+				this->hash = ZERO_HASH;
+				SHA256 sha256;
+				sha256.update((unsigned char*)child0->getHash().data(), 32);
+				sha256.update((unsigned char*)child1->getHash().data(), 32);
+				sha256.final((unsigned char*)this->hash->data());
+				this->child0 = nullptr;
+				this->child1 = nullptr;
+			}
+		}
+		return *this->hash;
 	}
-	else if (child0 != nullptr && child1 == nullptr)
-	{
-		this->hash = child0->getHash();
-		this->child0 = nullptr;
-	}
-	else if (child0 != nullptr && child1 != nullptr)
-	{
-		this->hash = ZERO_HASH;
-		SHA256 sha256;
-		sha256.update((unsigned char*)child0->getHash().data(), 32);
-		sha256.update((unsigned char*)child1->getHash().data(), 32);
-		sha256.final((unsigned char*)this->hash->data());
-		this->child0 = nullptr;
-		this->child1 = nullptr;
-	}
-	else exitWithError("asgsddagsagds");
-	return *this->hash;
 }
 
 long MerkelNode::calcDataSize()
 {
-	if (level == 0) return dataSize;
-	else return child0->calcDataSize() + child1->calcDataSize();
+	if (this->dataSize >= 1) return dataSize;
+	else return this->dataSize = child0->calcDataSize() + child1->calcDataSize();
 }
 
 bool MerkelNode::isFull()
 {
-	if (level == 0) return true;
-	else return child0 != nullptr && child1 != nullptr && child0->isFull() && child1->isFull();
+	if (level == 0) return false; //this->dataSize >= 1;
+	else return this->hash.has_value() || (child0 != nullptr && child1 != nullptr && child0->isFull() && child1->isFull());
 }
-
-
 
 MerkelTree::MerkelTree()
 {
@@ -128,23 +159,16 @@ void MerkelTree::addData(const char* data, int amountBytes)
 	while (currentMerkelNode->level > 0)
 	{
 		std::shared_ptr<MerkelNode> newNode = std::make_shared<MerkelNode>(currentMerkelNode->level - 1, currentMerkelNode);
+
 		if (currentMerkelNode->child0 == nullptr) currentMerkelNode->setChild0(newNode);
 		else if (currentMerkelNode->child1 == nullptr) currentMerkelNode->setChild1(newNode);
-		else exitWithError("agjasjjkdsf");
+		else exitWithError("Fatal bug in MerkelTree: lower level node already has two children");
+
 		currentMerkelNode = newNode;
 	}
 
-	if (currentMerkelNode->hash.has_value()) exitWithError("Fatal bug in merkel tree: attempted to overwrite hash in node");
-
-
+	currentMerkelNode->setData(data, amountBytes);
+	currentMerkelNode->parent->forgetChildrenIfFull();
 
 	totalBytes += amountBytes;
-
-
-	SHA256 sha256;
-	sha256.init();
-	sha256.update((unsigned char*)&data[0], amountBytes);
-	currentMerkelNode->hash = ZERO_HASH;
-	sha256.final((unsigned char*)currentMerkelNode->hash->data());
-	currentMerkelNode->dataSize = amountBytes;
 }

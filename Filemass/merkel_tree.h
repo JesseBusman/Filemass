@@ -8,13 +8,16 @@ class MerkelNode
 {
 public:
 	MerkelNode(int _level, std::shared_ptr<MerkelNode> _parent);
+	void setData(const char* _data, int _amountBytes);
 	int level;
-	std::optional<std::array<char, 32>> hash;
-	int dataSize = 0;
+	std::optional<std::array<char, 32>> hash = std::nullopt;
+	int dataSize = -1;
 	std::shared_ptr<MerkelNode> parent;
 	std::shared_ptr<MerkelNode> child0 = nullptr;
 	std::shared_ptr<MerkelNode> child1 = nullptr;
 
+	void forgetChildrenIfFull();
+	
 	void setChild0(std::shared_ptr<MerkelNode> _child0);
 	void setChild1(std::shared_ptr<MerkelNode> _child1);
 	
