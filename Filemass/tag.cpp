@@ -28,10 +28,7 @@ std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite
 	{
 		stepResult = sqlite3_step(stmt);
 		if (stepResult == SQLITE_DONE) break;
-		else if (stepResult != SQLITE_ROW)
-		{
-			throw "sql query error in findTagsOfFile";
-		}
+		else if (stepResult != SQLITE_ROW) exitWithError("sqlite3_step did not return SQLITE_DONE or SQL_ROW on first query in findTagsOfFile: " + std::to_string(stepResult) + ": " + sqlite3_errmsg(tagbase_db));
 
 		std::array<char, 32> parent_hash_sum = sqlite3_column_32chars(stmt, 0);
 		std::array<char, 32> hash_sum = sqlite3_column_32chars(stmt, 1);
@@ -67,8 +64,6 @@ std::shared_ptr<Tag> findTagsOfFile(const std::array<char, 32>& fileHash, sqlite
 		std::swap(tag->subtags, parent_hash_sum__to__child_tags[hash_sum]);
 		parent_hash_sum__to__child_tags.erase(hash_sum);
 	}
-
-	if (stepResult != SQLITE_DONE) throw "ERROR stepResult != SQLITE_DONE";
 	
 	return ret;
 }

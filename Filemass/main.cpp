@@ -213,23 +213,20 @@ int main(int argc, char* argv[])
 	
 		std::shared_ptr<Repository> selected_repository = nullptr;
 
-		if (!arg_init_tagbase)
+		if (std::filesystem::exists(selected_repository_path))
 		{
-			if (std::filesystem::exists(selected_repository_path))
+			if (std::filesystem::is_directory(selected_repository_path))
 			{
-				if (std::filesystem::is_directory(selected_repository_path))
-				{
-					selected_repository = std::make_shared<Repository>(selected_repository_path);
-				}
-				else
-				{
-					exitWithError("Specified repo path is not a directory: " + selected_repository_path);
-				}
+				selected_repository = std::make_shared<Repository>(selected_repository_path);
 			}
-			else
+			else if (arg_repo.has_value())
 			{
-				exitWithError("Specified repo does not exist: " + selected_repository_path);
+				exitWithError("Specified repo path is not a directory: " + selected_repository_path);
 			}
+		}
+		else if (arg_repo.has_value())
+		{
+			exitWithError("Specified repo does not exist: " + selected_repository_path);
 		}
 
 
@@ -341,7 +338,7 @@ int main(int argc, char* argv[])
 		//////////////////////////////////////////////////
 		//// --tagbase
 
-		if (tagbase_db == nullptr && (arg_tags.has_value() || arg_remove_tags.has_value() || arg_add_tags.has_value()))
+		if (tagbase_db == nullptr && arg_tagbase.has_value()) // && (arg_tags.has_value() || arg_remove_tags.has_value() || arg_add_tags.has_value()))
 		{
 			if (!std::filesystem::exists(selected_tagbase_path))
 			{
@@ -418,7 +415,8 @@ int main(int argc, char* argv[])
 			for (int i=0; i<arg_files->length(); i++)
 			{
 				char c = (*arg_files)[i];
-				if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
+				if (c == ',' || c == ' ' || c == ';') { }
+				else if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))
 				{
 					int amountBytes = hex_to_bytes(&arg_files->c_str()[i], hash);
 					if (amountBytes != 32)
@@ -428,7 +426,30 @@ int main(int argc, char* argv[])
 					i += 64;
 					selected_file_hashes.push_back(hash);
 				}
+				else exitWithError("Unexpected character in --files argument");
 			}
+
+			auto filesArray = std::make_shared<JsonValue_Array>();
+
+			for (auto const& fileHash : selected_file_hashes)
+			{
+				auto file = std::make_shared<JsonValue_Map>();
+				file->set("hash", bytes_to_hex(fileHash));
+
+				if (tagbase_db != nullptr)
+				{
+					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
+					auto tagsArray = std::make_shared<JsonValue_Array>();
+					for (auto tag : tags->subtags)
+					{
+						tagsArray->array.push_back(tag->toJSON());
+					}
+					file->set("tags", tagsArray);
+				}
+				filesArray->array.push_back(file);
+			}
+
+			jsonOutput.set("files", filesArray);
 		}
 
 

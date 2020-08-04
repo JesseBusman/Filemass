@@ -10,6 +10,7 @@ MerkelNode::MerkelNode(int _level, std::shared_ptr<MerkelNode> _parent):
 	parent(_parent)
 {
 }
+
 void MerkelNode::setData(const char* _data, int _amountBytes)
 {
 	if (this->level != 0) exitWithError("MerkelNode::setData, but node is not level 0");
