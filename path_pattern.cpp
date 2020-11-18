@@ -22,7 +22,7 @@ void pathPatternSyntaxError(const std::string& str, unsigned int pos, const std:
 }
 
 PathPattern_DirectoriesThatMatch::PathPattern_DirectoriesThatMatch(const std::string& _str, std::shared_ptr<PathPattern> _subPattern, bool _absolutePath):
-	str(_str), subPattern(_subPattern), absolutePath(_absolutePath)
+	absolutePath(_absolutePath), str(_str), subPattern(_subPattern)
 {
 }
 

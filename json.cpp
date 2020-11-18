@@ -68,7 +68,8 @@ void JsonValue_Integer::write(std::ostream& stream, int, bool) const
 
 void JsonValue_Map::write(std::ostream& stream, int depth, bool prefixSpaces) const
 {
-	if (prefixSpaces) writeSpaces(stream, depth); stream << "{\r\n";
+	if (prefixSpaces) writeSpaces(stream, depth);
+	stream << "{\r\n";
 	bool first = true;
 	size_t n = 0;
 	for (auto const& [key, value] : this->map)
@@ -76,11 +77,14 @@ void JsonValue_Map::write(std::ostream& stream, int depth, bool prefixSpaces) co
 		n++;
 		if (!first) stream << ",\r\n";
 		first = false;
-		writeSpaces(stream, depth + 2); writeString(stream, key); stream << ": ";
+		writeSpaces(stream, depth + 2);
+		writeString(stream, key);
+		stream << ": ";
 		value->write(stream, depth + 2, false);
 	}
 	if (!first) stream << "\r\n";
-	writeSpaces(stream, depth); stream << "}";
+	writeSpaces(stream, depth);
+	stream << "}";
 }
 void JsonValue_Map::set(const std::string& key, const std::string& value)
 {
@@ -97,7 +101,8 @@ void JsonValue_Map::set(const std::string& key, std::shared_ptr<JsonValue> value
 
 void JsonValue_Array::write(std::ostream& stream, int depth, bool prefixSpaces) const
 {
-	if (prefixSpaces) writeSpaces(stream, depth); stream << "[\r\n";
+	if (prefixSpaces) writeSpaces(stream, depth);
+	stream << "[\r\n";
 	for (auto const& value : this->array)
 	{
 		value->write(stream, depth + 2);

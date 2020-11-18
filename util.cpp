@@ -168,7 +168,7 @@ void readExactly(std::ifstream& source, char* destBuffer, unsigned long long amo
 	while (amount > 0)
 	{
 		source.read(destBuffer, amount);
-		std::streamsize amountRead = source.gcount();
+		unsigned long long amountRead = (unsigned long long)source.gcount();
 
 		if (amountRead > amount) exitWithError("wtf in readExactly: amountRead > amount");
 
@@ -184,7 +184,7 @@ void readExactly(std::fstream& source, char* destBuffer, unsigned long long amou
 	while (amount > 0)
 	{
 		source.read(destBuffer, amount);
-		std::streamsize amountRead = source.gcount();
+		unsigned long long amountRead = (unsigned long long)source.gcount();
 
 		if (amountRead > amount) exitWithError("wtf in readExactly: amountRead > amount");
 

@@ -250,7 +250,7 @@ std::shared_ptr<TagQuery> parseTagQuery(const std::string& str)
 	int pos = 0;
 	std::shared_ptr<TagQuery> ret = _parseTagQuery(str, pos, 0);
 	skipWhitespace(str, pos);
-	if (pos != str.size())
+	if (pos != (int)str.size())
 	{
 		tagQuerySyntaxError(str, pos, "Syntax error in tag query: Unexpected character");
 	}

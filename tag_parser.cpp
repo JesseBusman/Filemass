@@ -110,7 +110,7 @@ std::string readTagName(const std::string& str, int& pos)
 	int startPos = pos;
 	int lastNonWhitespace = -1;
 	
-	while (pos < str.size() && str[pos] != ',' && str[pos] != '[' && str[pos] != ']' && str[pos] != '&' && str[pos] != '|' && str[pos] != '^' && str[pos] != '!' && str[pos] != '~' && str[pos] != ')' && str[pos] != '(')
+	while (pos < (int)str.size() && str[pos] != ',' && str[pos] != '[' && str[pos] != ']' && str[pos] != '&' && str[pos] != '|' && str[pos] != '^' && str[pos] != '!' && str[pos] != '~' && str[pos] != ')' && str[pos] != '(')
 	{
 		if (str[pos] == ' ' || str[pos] == '\r' || str[pos] == '\t' || str[pos] == '\n')
 		{

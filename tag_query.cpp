@@ -393,7 +393,7 @@ void TagQuery::findIn(const std::array<char, 32>& parentHashSum, std::map<std::a
 		std::map<std::array<char, 32>, bool> temp1;
 		t->operands[0]->findIn(parentHashSum, temp1, tagbase_db);
 
-		for (int i=1; i<t->operands.size(); i++)
+		for (unsigned int i=1; i<t->operands.size(); i++)
 		{
 			std::map<std::array<char, 32>, bool> temp2;
 			t->operands[i]->findIn(parentHashSum, temp2, tagbase_db);

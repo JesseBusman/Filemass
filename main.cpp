@@ -411,7 +411,7 @@ int main(int argc, char* argv[])
 		if (arg_files.has_value())
 		{
 			std::array<char, 32> hash;
-			for (int i=0; i<arg_files->length(); i++)
+			for (unsigned int i=0; i<arg_files->length(); i++)
 			{
 				char c = (*arg_files)[i];
 				if (c == ',' || c == ' ' || c == ';') { }
