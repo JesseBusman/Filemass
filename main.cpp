@@ -10,7 +10,6 @@
 #include <locale>
 #include <array>
 #include <memory>
-#include <Windows.h>
 
 #include "sqlite3.h"
 #include "util.h"
@@ -30,7 +29,7 @@ JsonValue_Map jsonOutput;
 int main(int argc, char* argv[])
 {
 	for (int i=0; i<32; i++) ZERO_HASH[i] = 0x00;
-
+	
 	try
 	{
 		if (argc == 1)
@@ -72,17 +71,17 @@ int main(int argc, char* argv[])
 		DEBUGGING = false;
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
-
+		
 		for (int i = 1; i < argc; i++)
 		{
 			const char* arg = argv[i];
-
+			
 			int start = 0;
 			if (arg[0] == '-' && arg[1] != '-') start = 1;
 			if (arg[0] == '-' && arg[1] == '-') start = 2;
-
+			
 			int equalsSignPosition = -1;
-
+			
 			for (int j = start; ; j++)
 			{
 				char c = arg[j];
@@ -95,7 +94,7 @@ int main(int argc, char* argv[])
 		
 			std::string field = (equalsSignPosition == -1) ? &arg[start] : std::string(&arg[start], equalsSignPosition - start);
 			std::string value = (equalsSignPosition == -1) ? "" : &arg[equalsSignPosition + 1];
-
+			
 			if (field == "json")
 			{
 				arg_json = true;
@@ -154,21 +153,21 @@ int main(int argc, char* argv[])
 			}
 		}
 		
-
-
-
-
 		
-
-
-
-
-
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		//////////////////////////
 		//// --init-repo
-
+		
 		std::string selected_repository_path = arg_repo.has_value() ? *arg_repo : ".";
-
+		
 		if (arg_init_repo)
 		{
 			if (!std::filesystem::exists(selected_repository_path))
@@ -183,19 +182,19 @@ int main(int argc, char* argv[])
 			{
 				exitWithError("Cannot init repository at " + selected_repository_path + " because that directory is not empty");
 			}
-
+			
 			std::string config_path = selected_repository_path + "/fmrepo.conf";
-
+			
 			if (std::filesystem::exists(config_path))
 			{
 				exitWithError("Cannot init repository at " + selected_repository_path + " because config file already exists at " + config_path);
 			}
-
+			
 			std::ofstream outfile(config_path, std::ios::out);
 			outfile.write("", 0);
 			outfile.flush();
 			outfile.close();
-
+			
 			if (arg_json)
 			{
 				jsonOutput.set("initialized_repository", selected_repository_path);
@@ -205,14 +204,14 @@ int main(int argc, char* argv[])
 				std::cout << "[--init-repo] Initialized repository at " << selected_repository_path << "\r\n";
 			}
 		}
-
 		
-
+		
+		
 		//////////////////////////////////////
 		//// --repo
 	
 		std::shared_ptr<Repository> selected_repository = nullptr;
-
+		
 		if (std::filesystem::exists(selected_repository_path))
 		{
 			if (std::filesystem::is_directory(selected_repository_path))
@@ -228,24 +227,24 @@ int main(int argc, char* argv[])
 		{
 			exitWithError("Specified repo does not exist: " + selected_repository_path);
 		}
-
-
-
+		
+		
+		
 		/////////////////////////////////////////////////
 		//// --init-tagbase
-
+		
 		std::string selected_tagbase_path = arg_tagbase.has_value() ? *arg_tagbase : "./default_tagbase.sqlite3";
 		sqlite3* tagbase_db = nullptr;
-
+		
 		if (arg_init_tagbase)
 		{
 			if (std::filesystem::exists(selected_tagbase_path))
 			{
 				exitWithError("Cannot init tagbase at " + selected_tagbase_path + " because that file already exists");
 			}
-
+			
 			int sqlite_returncode = sqlite3_open(selected_tagbase_path.c_str(), &tagbase_db);
-
+			
 			if (sqlite_returncode != SQLITE_OK)
 			{
 				exitWithError("Cannot init tagbase at " + selected_tagbase_path + " because of sqlite error " + std::to_string(sqlite_returncode) + ": " + sqlite3_errmsg(tagbase_db));
@@ -254,7 +253,7 @@ int main(int argc, char* argv[])
 
 
 
-
+			
 			q(
 				tagbase_db,
 				"CREATE TABLE edges"
@@ -287,7 +286,7 @@ int main(int argc, char* argv[])
 
 
 
-
+			
 			q(
 				tagbase_db,
 				"CREATE TABLE hashed_data"
@@ -300,7 +299,7 @@ int main(int argc, char* argv[])
 
 
 
-
+			
 			q(
 				tagbase_db,
 				"CREATE TABLE parent_hash_sum_counts"
@@ -317,7 +316,7 @@ int main(int argc, char* argv[])
 
 
 
-
+			
 			q(
 				tagbase_db,
 				"CREATE TABLE child_hash_counts"
@@ -331,13 +330,13 @@ int main(int argc, char* argv[])
 				"CREATE INDEX child_hash_counts__index_on__child_hash ON child_hash_counts (child_hash)"
 			);
 		}
-
-
-
-
+		
+		
+		
+		
 		//////////////////////////////////////////////////
 		//// --tagbase
-
+		
 		if (tagbase_db == nullptr && arg_tagbase.has_value()) // && (arg_tags.has_value() || arg_remove_tags.has_value() || arg_add_tags.has_value()))
 		{
 			if (!std::filesystem::exists(selected_tagbase_path))
@@ -348,29 +347,29 @@ int main(int argc, char* argv[])
 			{
 				exitWithError("Cannot open tagbase at " + selected_tagbase_path + " because that file is not a regular file");
 			}
-
+			
 			int sqlite_returncode = sqlite3_open(selected_tagbase_path.c_str(), &tagbase_db);
-
+			
 			if (sqlite_returncode != SQLITE_OK)
 			{
 				exitWithError("Cannot open tagbase at " + selected_tagbase_path + " because of sqlite error " + std::to_string(sqlite_returncode) + ": " + sqlite3_errmsg(tagbase_db));
 			}
 		}
-
-
-
-
-
-
+		
+		
+		
+		
+		
+		
 		/////////////////////////////////////////////////////
 		//// --add-files
-
+		
 		std::vector<std::array<char, 32>> selected_file_hashes;
 	
 		if (arg_add_files.has_value())
 		{
 			std::shared_ptr<PathPattern> pathPattern = parsePathPattern(*arg_add_files);
-
+			
 			if (DEBUGGING)
 			{
 				if (arg_json) jsonOutput.set("_debug_pathPattern", pathPattern->toString());
@@ -379,7 +378,7 @@ int main(int argc, char* argv[])
 			
 			long long amountOFilesAdded = 0;
 			long long amountOfNewFilesAdded = 0;
-
+			
 			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes, &amountOFilesAdded, &amountOfNewFilesAdded](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
 				{
@@ -390,7 +389,7 @@ int main(int argc, char* argv[])
 				amountOFilesAdded++;
 				if (wasNewlyAdded) amountOfNewFilesAdded++;
 			});
-
+			
 			if (arg_json)
 			{
 				jsonOutput.set("filesAdded", amountOFilesAdded);
@@ -401,14 +400,14 @@ int main(int argc, char* argv[])
 				std::cout << "Added " << amountOFilesAdded << " files to the repository, " << amountOfNewFilesAdded << " of which were new.\r\n"; 
 			}
 		}
-
-
-
-
-
+		
+		
+		
+		
+		
 		/////////////////////////////////////////////////////
 		//// --files
-
+		
 		if (arg_files.has_value())
 		{
 			std::array<char, 32> hash;
@@ -428,14 +427,14 @@ int main(int argc, char* argv[])
 				}
 				else exitWithError("Unexpected character in --files argument");
 			}
-
+			
 			auto filesArray = std::make_shared<JsonValue_Array>();
-
+			
 			for (auto const& fileHash : selected_file_hashes)
 			{
 				auto file = std::make_shared<JsonValue_Map>();
 				file->set("hash", bytes_to_hex(fileHash));
-
+				
 				if (tagbase_db != nullptr)
 				{
 					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
@@ -446,88 +445,88 @@ int main(int argc, char* argv[])
 					}
 					file->set("tags", tagsArray);
 				}
+				
 				filesArray->array.push_back(file);
 			}
-
+			
 			jsonOutput.set("files", filesArray);
 		}
-
-
-
-
-
-
+		
+		
+		
+		
+		
+		
 		//////////////////////////////////////////////////////////
 		//// --add-tags
-
+		
 		if (arg_add_tags.has_value())
 		{
 			if (selected_file_hashes.size() == 0)
 			{
 				exitWithError("To use --add-tags, at least one file must be selected (using --add-files or --files)");
 			}
-
+			
 			if (tagbase_db == nullptr)
 			{
 				exitWithError("To use --add-tag, a tagbase must be selected");
 			}
-
+			
 			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
-
+			
 			q(tagbase_db, "BEGIN TRANSACTION");
-
+			
 			for (const auto& file_hash : selected_file_hashes)
 			for (const auto& tag : tags)
 			{
 				tag->addTo(file_hash, ZERO_HASH, file_hash, tagbase_db, true);
 			}
-
+			
 			q(tagbase_db, "COMMIT");
 		}
-
-
-
-
-
+		
+		
+		
+		
+		
 		//////////////////////////////////////////////////////////
 		//// --remove-tags
-
+		
 		if (arg_remove_tags.has_value())
 		{
 			if (selected_file_hashes.size() == 0)
 			{
 				exitWithError("To use --remove-tags, a file must be selected (using --files)");
 			}
-
+			
 			if (tagbase_db == nullptr)
 			{
 				exitWithError("To use --remove-tags, a tagbase must be selected");
 			}
-
+			
 			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
-
+			
 			for (const auto& file_hash : selected_file_hashes)
 			for (auto tag : tags)
 			{
 				tag->removeFrom(file_hash, tagbase_db);
 			}
 		}
-
-
-
-
+		
+		
+		
 		//////////////////////////////////////////////////////////
 		//// --tags
-
+		
 		if (arg_tags.has_value())
 		{
 			if (tagbase_db == nullptr)
 			{
 				exitWithError("To use --tag, a tagbase must be selected");
 			}
-
+			
 			std::shared_ptr<TagQuery> tagQuery = parseTagQuery(*arg_tags);
-
+			
 			if (DEBUGGING) std::cout << "[--tags] Tag query: " << tagQuery->toString() << "\r\n";
 			
 			std::map<std::array<char, 32>, bool> fileHashes;
@@ -536,12 +535,12 @@ int main(int argc, char* argv[])
 			if (arg_json)
 			{
 				auto filesArray = std::make_shared<JsonValue_Array>();
-
+				
 				for (auto const& [fileHash, _] : fileHashes)
 				{
 					auto file = std::make_shared<JsonValue_Map>();
 					file->set("hash", bytes_to_hex(fileHash));
-
+					
 					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
 					auto tagsArray = std::make_shared<JsonValue_Array>();
 					for (auto tag : tags->subtags)
@@ -551,13 +550,13 @@ int main(int argc, char* argv[])
 					file->set("tags", tagsArray);
 					filesArray->array.push_back(file);
 				}
-
+				
 				jsonOutput.set("files", filesArray);
 			}
 			else
 			{
 				std::cout << "Found " << fileHashes.size() << " files:\r\n";
-
+				
 				for (auto const& [fileHash, _] : fileHashes)
 				{
 					std::shared_ptr<Tag> tags = findTagsOfFile(fileHash, tagbase_db);
@@ -565,20 +564,17 @@ int main(int argc, char* argv[])
 				}
 			}
 		}
-
-
-
-
+		
 		if (tagbase_db != nullptr)
 		{
 			sqlite3_close(tagbase_db);
 		}
-
+		
 		if (arg_json)
 		{
 			jsonOutput.write(std::cout);
 		}
-
+		
 		return 0;
 	}
 	catch (const char* errorMessage)
