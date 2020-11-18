@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <iostream>
+#include <climits>
 
 #include "util.h"
 #include "sqlite3.h"

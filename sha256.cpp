@@ -1,3 +1,5 @@
+#include <cstring>
+
 #include "sha256.h"
 #include "util.h" 
 

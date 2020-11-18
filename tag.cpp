@@ -5,6 +5,7 @@
 #include <map>
 #include <array>
 #include <string>
+#include <optional>
 
 #include "sha256.h"
 #include "util.h"

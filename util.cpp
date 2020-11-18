@@ -4,6 +4,7 @@
 #include <array>
 #include <map>
 #include <iostream>
+#include <cstring>
 
 #include "util.h"
 #include "sqlite3.h"
