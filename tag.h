@@ -23,6 +23,7 @@ public:
 
 	Tag(const std::string& _name);
 	Tag(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& hashSum, const std::array<char, 32>& thisHash, const std::array<char, 32>& fileHash);
+	Tag(const std::vector<std::string>& _nestedTags);
 	void debugPrint(int depth=0) const;
 	void addTo(const std::array<char, 32>& parentHashSum, const std::array<char, 32>& destGrandParentHashSum, const std::array<char, 32>& destFileHash, sqlite3* tagbase_db, bool insideTransaction);
 	void removeFrom(const std::array<char, 32>& parentHashSum, sqlite3* tagbase_db);

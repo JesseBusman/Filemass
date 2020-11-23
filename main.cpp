@@ -47,6 +47,7 @@ int main(int argc, char* argv[])
 				<< "\r\nTags:\r\n"
 				<< "--tag=[tagquery]        Find files that match the given [tagquery]\r\n"
 				<< "--add-tags=[taglist]    Add [tags] to the selected files\r\n"
+				<< "--add-fs-tags           Add #original_path tags to the selected files\r\n"
 				<< "--remove-tags=[taglist] Remove [tags] from the selected files\r\n"
 				<< "\r\nOutput format:\r\n"
 				<< "--json               Format output as JSON\r\n"
@@ -71,6 +72,7 @@ int main(int argc, char* argv[])
 		DEBUGGING = false;
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
+		bool arg_add_fs_tags = false;
 		
 		for (int i = 1; i < argc; i++)
 		{
@@ -142,6 +144,10 @@ int main(int argc, char* argv[])
 			else if (field == "add-tags")
 			{
 				arg_add_tags = value;
+			}
+			else if (field == "add-fs-tags")
+			{
+				arg_add_fs_tags = true;
 			}
 			else if (field == "remove-tags" || field == "untag")
 			{
@@ -365,6 +371,7 @@ int main(int argc, char* argv[])
 		//// --add-files
 		
 		std::vector<std::array<char, 32>> selected_file_hashes;
+		std::vector<std::string> selected_file_paths;
 	
 		if (arg_add_files.has_value())
 		{
@@ -379,13 +386,14 @@ int main(int argc, char* argv[])
 			long long amountOFilesAdded = 0;
 			long long amountOfNewFilesAdded = 0;
 			
-			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes, &amountOFilesAdded, &amountOfNewFilesAdded](const std::string& path){
+			pathPattern->findFiles(".", [&selected_repository, &selected_file_hashes, &selected_file_paths, &amountOFilesAdded, &amountOfNewFilesAdded](const std::string& path){
 				if (!std::filesystem::is_regular_file(path))
 				{
 					exitWithError("The file you're trying to add is not a regular file: " + path);
 				}
 				auto [hash, wasNewlyAdded] = selected_repository->add(path);
 				selected_file_hashes.push_back(hash);
+				selected_file_paths.push_back(path);
 				amountOFilesAdded++;
 				if (wasNewlyAdded) amountOfNewFilesAdded++;
 			});
@@ -424,6 +432,7 @@ int main(int argc, char* argv[])
 					}
 					i += 64;
 					selected_file_hashes.push_back(hash);
+					selected_file_paths.push_back("");
 				}
 				else exitWithError("Unexpected character in --files argument");
 			}
@@ -469,7 +478,7 @@ int main(int argc, char* argv[])
 			
 			if (tagbase_db == nullptr)
 			{
-				exitWithError("To use --add-tag, a tagbase must be selected");
+				exitWithError("To use --add-tags, a tagbase must be selected");
 			}
 			
 			std::vector<std::shared_ptr<Tag>> tags = parseTag(*arg_add_tags);
@@ -484,6 +493,61 @@ int main(int argc, char* argv[])
 			
 			q(tagbase_db, "COMMIT");
 		}
+		
+		
+		
+		
+		
+		
+		//////////////////////////////////////////////////////////
+		//// --add-fs-tags
+		
+		if (arg_add_fs_tags)
+		{
+			if (selected_file_hashes.size() == 0)
+			{
+				exitWithError("To use --add-fs-tags, at least one file must be selected (using --add-files)");
+			}
+			
+			if (tagbase_db == nullptr)
+			{
+				exitWithError("To use --add-fs-tags, a tagbase must be selected");
+			}
+			
+			if (selected_file_hashes.size() != selected_file_paths.size())
+			{
+				// wtf
+				printf("WTF");
+				exit(1);
+				// wtf
+				return 1;
+			}
+			for (unsigned int i=0; i<selected_file_paths.size(); i++)
+			{
+				const auto& file_path = selected_file_paths[i];
+				if (file_path.length() == 0) continue;
+				const auto& file_hash = selected_file_hashes[i];
+				
+				std::string abs_file_path = std::filesystem::canonical(file_path);
+				std::vector<std::string> tag_chain{"#original_path"};
+				unsigned int prevStart = 0;
+				for (unsigned int j=0; j<=abs_file_path.size(); j++)
+				{
+					char c = abs_file_path.c_str()[j];
+					if (c == '/' || c == 0x00)
+					{
+						if (prevStart != j)
+						{
+							tag_chain.push_back(abs_file_path.substr(prevStart, j-prevStart));
+						}
+						prevStart = j + 1;
+					}
+				}
+				
+				Tag(tag_chain).addTo(file_hash, ZERO_HASH, file_hash, tagbase_db, true);
+			}
+		}
+		
 		
 		
 		

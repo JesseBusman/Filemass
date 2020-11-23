@@ -87,6 +87,18 @@ Tag::Tag(const std::string& _name):
 	hasher.final((unsigned char*)thisHash->data());
 }
 
+Tag::Tag(const std::vector<std::string>& _nestedTags):
+	Tag(_nestedTags[0])
+{
+	Tag* temp = this;
+	for (unsigned int i=1; i<_nestedTags.size(); i++)
+	{
+		std::shared_ptr<Tag> subtag = std::make_shared<Tag>(_nestedTags[i]);
+		temp->subtags.push_back(subtag);
+		temp = subtag.get();
+	}
+}
+
 std::string Tag::toString() const
 {
 	std::string ret;
