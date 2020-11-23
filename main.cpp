@@ -21,6 +21,7 @@
 #include "tag_query_parser.h"
 #include "path_pattern.h"
 #include "json.h"
+#include "uuid.h"
 
 bool DEBUGGING = false;
 bool arg_json = false;
@@ -197,7 +198,8 @@ int main(int argc, char* argv[])
 			}
 			
 			std::ofstream outfile(config_path, std::ios::out);
-			outfile.write("", 0);
+			std::string initialConfigFile = "uuid="+generate_uuid_v4()+"\r\n";
+			outfile.write(initialConfigFile.c_str(), initialConfigFile.length());
 			outfile.flush();
 			outfile.close();
 			
