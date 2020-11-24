@@ -7,6 +7,7 @@
 #include "util.h"
 #include "repository.h"
 #include "merkel_tree.h"
+#include "sha256.h"
 
 Repository::Repository(std::string _path) :
 	path(_path)
@@ -139,16 +140,40 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 	std::string treePath = this->hashToTreePath(_file);
 	
 	bool treeFileIsTooLong = false;
-	std::ifstream ifs(treePath);
-	MerkelTree storedTree(ifs);
-	if (!ifs.eof()) treeFileIsTooLong = true;
-	ifs.close();
 	
-	if (!storedTree.errorCheck()) return ECR_ERROR;
-		
-	std::shared_ptr<MerkelTree> newTree = generateMerkelTreeFromFilePath(filePath);
+	std::ifstream treeIfs(treePath);
+	std::ifstream fileIfs(filePath);
 	
-	if (!newTree->equals(storedTree)) { return ECR_ERROR; }
+	char buff[1024];
+	std::array<char, 32> hashFromTree;
+	std::array<char, 32> hashFromFile;
+	
+	while (1)
+	{
+		fileIfs.read(&buff[0], 1024);
+		int amountRead = fileIfs.gcount();
+		SHA256 sha256;
+		sha256.init();
+		sha256.update((const unsigned char*)&buff[0], amountRead);
+		sha256.final((unsigned char*)hashFromFile.data());
 		
+		while (!treeIfs.eof())
+		{
+			treeIfs.read(buff, 1);
+			if (buff[0] == 0) break;
+			else treeIfs.read(buff, 8 + 32);
+		}
+		if (treeIfs.gcount() != 1) return ECR_ERROR;
+		treeIfs.read(buff, 8);
+		treeIfs.read(hashFromTree.data(), 32);
+		
+		if (hashFromTree != hashFromFile) return ECR_ERROR;
+		
+		if (amountRead != 1024) break;
+	}
+	
+	fileIfs.close();
+	treeIfs.close();
+	
 	return ECR_ALL_OK;
 }
