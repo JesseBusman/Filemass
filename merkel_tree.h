@@ -16,7 +16,7 @@ public:
 	std::shared_ptr<MerkelNode> parent;
 	std::shared_ptr<MerkelNode> child0 = nullptr;
 	std::shared_ptr<MerkelNode> child1 = nullptr;
-
+	
 	void forgetChildrenIfFull();
 	
 	void setChild0(std::shared_ptr<MerkelNode> _child0);

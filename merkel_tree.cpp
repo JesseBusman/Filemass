@@ -16,7 +16,7 @@ void MerkelNode::setData(const char* _data, int _amountBytes)
 	if (this->level != 0) exitWithError("MerkelNode::setData, but node is not level 0");
 	if (this->dataSize != -1) exitWithError("MerkelNode::setData, but node already has data");
 	if (this->hash.has_value()) exitWithError("MerkelNode::setData, but node already has hash");
-
+	
 	SHA256 sha256;
 	sha256.init();
 	sha256.update((const unsigned char*)&_data[0], _amountBytes);
@@ -171,22 +171,22 @@ void MerkelTree::addData(const char* data, int amountBytes)
 			break;
 		}
 	}
-
+	
 	// Search downwards until we're at a bottom node
 	while (currentMerkelNode->level > 0)
 	{
 		std::shared_ptr<MerkelNode> newNode = std::make_shared<MerkelNode>(currentMerkelNode->level - 1, currentMerkelNode);
-
+		
 		if (currentMerkelNode->child0 == nullptr) currentMerkelNode->setChild0(newNode);
 		else if (currentMerkelNode->child1 == nullptr) currentMerkelNode->setChild1(newNode);
 		else exitWithError("Fatal bug in MerkelTree: lower level node already has two children");
-
+		
 		currentMerkelNode = newNode;
 	}
-
+	
 	currentMerkelNode->setData(data, amountBytes);
 	if (!serializable) currentMerkelNode->parent->forgetChildrenIfFull();
-
+	
 	totalBytes += amountBytes;
 }
 
