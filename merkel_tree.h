@@ -28,6 +28,7 @@ public:
 	bool isFull() const;
 	long calcDataSize();
 	void serialize(std::ostream& _dest);
+	bool equals(const MerkelNode& _other) const;
 };
 
 class MerkelTree
@@ -46,4 +47,5 @@ public:
 	void finalize();
 	void addData(const char* data, int amountBytes);
 	void serialize(std::ostream& _dest);
+	bool equals(const MerkelTree& _other) const;
 };

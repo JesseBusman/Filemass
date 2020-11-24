@@ -119,7 +119,6 @@ MerkelNode::MerkelNode(std::istream& _serializedTree)
 	_serializedTree.read((char*)&this->level, 1);
 	_serializedTree.read((char*)&this->dataSize, 8);
 	
-	printf("MerkelNode read from stream: level=%i dataSize=%lu\r\n", this->level, this->dataSize);
 	this->hash = ZERO_HASH;
 	_serializedTree.read(this->hash->data(), 32);
 	
@@ -229,4 +228,20 @@ void MerkelTree::serialize(std::ostream& _dest)
 	if (!this->serializable) exitWithError("Fatal bug in MerkelTree: serialize called on non-serializable tree");
 	
 	rootMerkelNode->serialize(_dest);
+}
+
+bool MerkelTree::equals(const MerkelTree& _other) const
+{
+	if (this->totalBytes != _other.totalBytes) return false;
+	return this->rootMerkelNode->equals(*_other.rootMerkelNode);
+}
+bool MerkelNode::equals(const MerkelNode& _other) const
+{
+	if (this->dataSize != _other.dataSize) return false;
+	if (this->level != _other.level) return false;
+	if ((this->child0 == nullptr) != (_other.child0 == nullptr)) return false;
+	if ((this->child1 == nullptr) != (_other.child1 == nullptr)) return false;
+	if (this->child0 != nullptr && !this->child0->equals(*_other.child0)) return false;
+	if (this->child1 != nullptr && !this->child1->equals(*_other.child1)) return false;
+	return true;
 }
