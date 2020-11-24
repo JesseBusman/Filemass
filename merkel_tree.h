@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <array>
+#include <ostream>
 
 class MerkelNode
 {
@@ -21,10 +22,11 @@ public:
 	void setChild0(std::shared_ptr<MerkelNode> _child0);
 	void setChild1(std::shared_ptr<MerkelNode> _child1);
 	
-	const std::array<char, 32>& getHash();
+	const std::array<char, 32>& getHash(bool _cleanupChildrenWhenDone);
 	
 	bool isFull() const;
 	long calcDataSize();
+	void serialize(std::ostream& _dest);
 };
 
 class MerkelTree
@@ -35,9 +37,11 @@ private:
 	bool seenNon1024segment;
 	long totalBytes;
 public:
+	bool serializable;
 	std::optional<std::array<char, 32>> hash;
-	MerkelTree();
+	MerkelTree(bool _serializable);
 	long getTotalBytes() const;
 	void finalize();
 	void addData(const char* data, int amountBytes);
+	void serialize(std::ostream& _dest);
 };

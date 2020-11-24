@@ -29,7 +29,7 @@ void MerkelNode::forgetChildrenIfFull()
 {
 	if (this->isFull())
 	{
-		this->getHash();
+		this->getHash(false);
 		this->calcDataSize();
 		this->child0 = nullptr;
 		this->child1 = nullptr;
@@ -49,7 +49,7 @@ void MerkelNode::setChild1(std::shared_ptr<MerkelNode> _child1)
 	this->child1 = _child1;
 }
 
-const std::array<char, 32>& MerkelNode::getHash()
+const std::array<char, 32>& MerkelNode::getHash(bool _cleanupChildrenWhenDone)
 {
 	if (level == 0)
 	{
@@ -71,18 +71,18 @@ const std::array<char, 32>& MerkelNode::getHash()
 			}
 			else if (child0 != nullptr && child1 == nullptr)
 			{
-				this->hash = child0->getHash();
-				this->child0 = nullptr;
+				this->hash = child0->getHash(_cleanupChildrenWhenDone);
+				if (_cleanupChildrenWhenDone) this->child0 = nullptr;
 			}
 			else if (child0 != nullptr && child1 != nullptr)
 			{
 				this->hash = ZERO_HASH;
 				SHA256 sha256;
-				sha256.update((unsigned char*)child0->getHash().data(), 32);
-				sha256.update((unsigned char*)child1->getHash().data(), 32);
+				sha256.update((unsigned char*)child0->getHash(_cleanupChildrenWhenDone).data(), 32);
+				sha256.update((unsigned char*)child1->getHash(_cleanupChildrenWhenDone).data(), 32);
 				sha256.final((unsigned char*)this->hash->data());
-				this->child0 = nullptr;
-				this->child1 = nullptr;
+				if (_cleanupChildrenWhenDone) this->child0 = nullptr;
+				if (_cleanupChildrenWhenDone) this->child1 = nullptr;
 			}
 		}
 		return *this->hash;
@@ -92,7 +92,7 @@ const std::array<char, 32>& MerkelNode::getHash()
 long MerkelNode::calcDataSize()
 {
 	if (this->dataSize >= 1) return dataSize;
-	else return this->dataSize = child0->calcDataSize() + child1->calcDataSize();
+	else return this->dataSize = (child0 == nullptr ? 0 : child0->calcDataSize()) + (child1 == nullptr ? 0 : child1->calcDataSize());
 }
 
 bool MerkelNode::isFull() const
@@ -101,11 +101,27 @@ bool MerkelNode::isFull() const
 	else return this->hash.has_value() || (child0 != nullptr && child1 != nullptr && child0->isFull() && child1->isFull());
 }
 
-MerkelTree::MerkelTree()
+void MerkelNode::serialize(std::ostream& _dest)
+{
+	this->calcDataSize();
+	this->getHash(false);
+	if (this->hash == std::nullopt) exitWithError("no hash after getHash()");
+	
+	_dest.write((char*)&this->level, 4);
+	_dest.write((char*)&this->dataSize, 8);
+	_dest.write(this->hash->data(), 32);
+	if (this->child0 != nullptr) this->child0->serialize(_dest);
+	if (this->child1 != nullptr) this->child1->serialize(_dest);
+}
+
+
+
+MerkelTree::MerkelTree(bool _serializable)
 {
 	currentMerkelNode = rootMerkelNode = std::make_shared<MerkelNode>(0, nullptr);
 	seenNon1024segment = false;
 	totalBytes = 0;
+	serializable = _serializable;
 }
 long MerkelTree::getTotalBytes() const
 {
@@ -115,8 +131,8 @@ long MerkelTree::getTotalBytes() const
 void MerkelTree::finalize()
 {
 	if (this->hash.has_value()) exitWithError("finalize() called on already finalized merkel tree");
-	this->hash = rootMerkelNode->getHash();
-	this->rootMerkelNode = nullptr;
+	this->hash = rootMerkelNode->getHash(!serializable);
+	if (!serializable) this->rootMerkelNode = nullptr;
 }
 
 void MerkelTree::addData(const char* data, int amountBytes)
@@ -140,13 +156,13 @@ void MerkelTree::addData(const char* data, int amountBytes)
 		}
 		else if (currentMerkelNode->child0 != nullptr && currentMerkelNode->child1 != nullptr)
 		{
-			currentMerkelNode->getHash();
+			currentMerkelNode->getHash(!serializable);
 			currentMerkelNode = currentMerkelNode->parent;
 			continue;
 		}
 		else if (currentMerkelNode->child0 == nullptr && currentMerkelNode->child1 == nullptr && currentMerkelNode->hash.has_value())
 		{
-			currentMerkelNode->getHash();
+			currentMerkelNode->getHash(!serializable);
 			currentMerkelNode = currentMerkelNode->parent;
 			continue;
 		}
@@ -169,7 +185,14 @@ void MerkelTree::addData(const char* data, int amountBytes)
 	}
 
 	currentMerkelNode->setData(data, amountBytes);
-	currentMerkelNode->parent->forgetChildrenIfFull();
+	if (!serializable) currentMerkelNode->parent->forgetChildrenIfFull();
 
 	totalBytes += amountBytes;
+}
+
+void MerkelTree::serialize(std::ostream& _dest)
+{
+	if (!this->serializable) exitWithError("Fatal bug in MerkelTree: serialize called on non-serializable tree");
+	
+	rootMerkelNode->serialize(_dest);
 }

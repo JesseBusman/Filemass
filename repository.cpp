@@ -53,8 +53,8 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 	
 	std::array<char, 32> hash;
 
+	MerkelTree merkelTree(true);
 	{
-		MerkelTree merkelTree;
 		{
 			unsigned long fileSize = std::filesystem::file_size(_path);
 			unsigned long bytesRead = 0;
@@ -124,6 +124,17 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 			exitWithError("Failed to copy file " + _path + " to " + destPath);
 		}
 	}
-
+	
+	std::string treeDestPath = destPath + ".fmtree";
+	
+	if (!std::filesystem::exists(treeDestPath))
+	{
+		std::ofstream ofs(treeDestPath);
+		merkelTree.serialize(ofs);
+		ofs.close();
+	}
+	
+	
+	
 	return {hash, wasNew};
 }
