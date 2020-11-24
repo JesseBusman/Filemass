@@ -9,8 +9,9 @@ class MerkelNode
 {
 public:
 	MerkelNode(int _level, std::shared_ptr<MerkelNode> _parent);
+	MerkelNode(std::istream& _serializedTree);
 	void setData(const char* _data, int _amountBytes);
-	int level;
+	unsigned char level;
 	std::optional<std::array<char, 32>> hash = std::nullopt;
 	int dataSize = -1;
 	std::shared_ptr<MerkelNode> parent;
@@ -40,6 +41,7 @@ public:
 	bool serializable;
 	std::optional<std::array<char, 32>> hash;
 	MerkelTree(bool _serializable);
+	MerkelTree(std::istream& _serializedTree);
 	long getTotalBytes() const;
 	void finalize();
 	void addData(const char* data, int amountBytes);

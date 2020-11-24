@@ -134,6 +134,14 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 		ofs.close();
 	}
 	
+	if (DEBUGGING)
+	{
+		std::ifstream ifs(treeDestPath);
+		MerkelTree a(ifs);
+		printf("Deserialized merkel tree reports: %lu bytes\r\n", a.getTotalBytes());
+		if (!ifs.eof()) exitWithError("Merkel tree deserialization did not read the entire file.");
+		ifs.close();
+	}
 	
 	
 	return {hash, wasNew};

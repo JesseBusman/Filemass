@@ -107,14 +107,48 @@ void MerkelNode::serialize(std::ostream& _dest)
 	this->getHash(false);
 	if (this->hash == std::nullopt) exitWithError("no hash after getHash()");
 	
-	_dest.write((char*)&this->level, 4);
+	_dest.write((char*)&this->level, 1);
 	_dest.write((char*)&this->dataSize, 8);
 	_dest.write(this->hash->data(), 32);
 	if (this->child0 != nullptr) this->child0->serialize(_dest);
 	if (this->child1 != nullptr) this->child1->serialize(_dest);
 }
 
+MerkelNode::MerkelNode(std::istream& _serializedTree)
+{
+	_serializedTree.read((char*)&this->level, 1);
+	_serializedTree.read((char*)&this->dataSize, 8);
+	
+	printf("MerkelNode read from stream: level=%i dataSize=%lu\r\n", this->level, this->dataSize);
+	this->hash = ZERO_HASH;
+	_serializedTree.read(this->hash->data(), 32);
+	
+	if (!_serializedTree.eof())
+	{
+		unsigned char nextLevel = (unsigned char)_serializedTree.peek();
+		if (nextLevel < level)
+		{
+			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
+			this->child0 = std::make_shared<MerkelNode>(_serializedTree);
+		}
+		
+		nextLevel = (unsigned char)_serializedTree.peek();
+		if (nextLevel < level)
+		{
+			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
+			this->child1 = std::make_shared<MerkelNode>(_serializedTree);
+		}
+	}
+}
 
+
+MerkelTree::MerkelTree(std::istream& _serializedTree)
+{
+	serializable = true;
+	rootMerkelNode = std::make_shared<MerkelNode>(_serializedTree);
+	this->hash = rootMerkelNode->getHash(false);
+	totalBytes = rootMerkelNode->calcDataSize();
+}
 
 MerkelTree::MerkelTree(bool _serializable)
 {
