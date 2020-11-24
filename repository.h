@@ -3,6 +3,13 @@
 #include <string>
 #include <map>
 
+enum ErrorCheckResult
+{
+	ECR_ALL_OK,
+	ECR_FILE_NOT_FOUND,
+	ECR_ERROR
+};
+
 class Repository
 {
 private:
@@ -16,6 +23,6 @@ private:
 public:
 	Repository(std::string _path);
 	std::pair<std::array<char, 32>, bool> add(const std::string& _path);
-	bool errorCheck(const std::array<char, 32>& _file);
+	ErrorCheckResult errorCheck(std::array<char, 32> _file);
 	std::string hashToFilePath(const std::array<char, 32>& _hash);
 };

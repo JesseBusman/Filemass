@@ -79,33 +79,8 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 	if (!std::filesystem::exists(_path)) exitWithError("File does not exist: " + _path);
 	if (!std::filesystem::is_regular_file(_path)) exitWithError("File is not a regular file: " + _path);
 	
-	std::array<char, 32> hash;
-	
-	MerkelTree merkelTree(true);
-	{
-		{
-			unsigned long fileSize = std::filesystem::file_size(_path);
-			unsigned long bytesRead = 0;
-			
-			if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
-			std::ifstream file(_path, std::ios_base::binary);
-			char buff[1024];
-			while (bytesRead < fileSize)
-			{
-				int amountToRead;
-				if (bytesRead + 1024 <= fileSize) amountToRead = 1024;
-				else amountToRead = fileSize - bytesRead;
-				readExactly(file, &buff[0], amountToRead);
-				merkelTree.addData(&buff[0], amountToRead);
-				bytesRead += amountToRead;
-			}
-			file.close();
-		}
-		merkelTree.finalize();
-		hash = *merkelTree.hash;
-	}
-	
-	
+	std::shared_ptr<MerkelTree> merkelTree = generateMerkelTreeFromFilePath(_path);
+	std::array<char, 32> hash = *merkelTree->hash;	
 	
 	std::string destFilePath = this->hashToFilePath(hash);
 	
@@ -140,7 +115,7 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 	if (!std::filesystem::exists(destTreePath))
 	{
 		std::ofstream ofs(destTreePath);
-		merkelTree.serialize(ofs);
+		merkelTree->serialize(ofs);
 		ofs.close();
 	}
 	
@@ -151,9 +126,29 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 		printf("Deserialized merkel tree reports: %lu bytes\r\n", a.getTotalBytes());
 		if (!ifs.eof()) exitWithError("Merkel tree deserialization did not read the entire file.");
 		ifs.close();
-		if (merkelTree.equals(a)) printf("Merkel trees are equal! :D\r\n");
+		if (merkelTree->equals(a)) printf("Merkel trees are equal! :D\r\n");
 		else printf("Merkel trees are not equal! :(((\r\n");
 	}
 	
 	return {hash, wasNew};
+}
+
+ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
+{
+	std::string filePath = this->hashToFilePath(_file);
+	std::string treePath = this->hashToTreePath(_file);
+	
+	bool treeFileIsTooLong = false;
+	std::ifstream ifs(treePath);
+	MerkelTree storedTree(ifs);
+	if (!ifs.eof()) treeFileIsTooLong = true;
+	ifs.close();
+	
+	if (!storedTree.errorCheck()) return ECR_ERROR;
+		
+	std::shared_ptr<MerkelTree> newTree = generateMerkelTreeFromFilePath(filePath);
+	
+	if (!newTree->equals(storedTree)) { return ECR_ERROR; }
+		
+	return ECR_ALL_OK;
 }

@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
 				<< "\r\nFiles:\r\n"
 				<< "--files=[hashlist]   Select the files with hash in [hashlist]\r\n"
 				<< "--add-files=[file]   Add files matching [file] to selected repo, and select them\r\n"
+				<< "--errcheck           Run error checks on the selected files\r\n"
 				<< "\r\nTags:\r\n"
 				<< "--tag=[tagquery]        Find files that match the given [tagquery]\r\n"
 				<< "--add-tags=[taglist]    Add [tags] to the selected files\r\n"
@@ -75,6 +76,7 @@ int main(int argc, char* argv[])
 		bool arg_init_repo = false;
 		bool arg_init_tagbase = false;
 		bool arg_add_fs_tags = false;
+		bool arg_errcheck = false;
 		
 		for (int i = 1; i < argc; i++)
 		{
@@ -102,6 +104,10 @@ int main(int argc, char* argv[])
 			if (field == "json")
 			{
 				arg_json = true;
+			}
+			else if (field == "errcheck")
+			{
+				arg_errcheck = true;
 			}
 			else if (field == "debug")
 			{
@@ -464,6 +470,62 @@ int main(int argc, char* argv[])
 			jsonOutput.set("files", filesArray);
 		}
 		
+		
+		
+		
+		
+		/////////////////////////////////////////////////////
+		//// --errcheck
+		
+		if (arg_errcheck)
+		{
+			if (selected_repository == nullptr)
+			{
+				exitWithError("A repository must be selected to use --errcheck");
+			}
+			
+			std::shared_ptr<JsonValue_Array> filesNoError = std::make_shared<JsonValue_Array>();
+			std::shared_ptr<JsonValue_Array> filesNotFound = std::make_shared<JsonValue_Array>();
+			std::shared_ptr<JsonValue_Array> filesError = std::make_shared<JsonValue_Array>();
+			
+			unsigned long amountNoError = 0;
+			unsigned long amountNotFound = 0;
+			unsigned long amountError = 0;
+			
+			for (auto hash : selected_file_hashes)
+			{
+				std::string hashStr = bytes_to_hex(hash);
+				std::string blblbl = selected_repository->hashToFilePath(hash);
+				
+				ErrorCheckResult ecr = selected_repository->errorCheck(hash);
+				
+				if (arg_json)
+				{
+					if (ecr == ECR_ALL_OK) filesNoError->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr)));
+					else if (ecr == ECR_FILE_NOT_FOUND) filesNotFound->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr)));
+					else if (ecr == ECR_ERROR) filesError->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr)));
+					else exitWithError("Unknown ECR code");
+				}
+				else
+				{
+					if (ecr == ECR_ERROR) { printf("[--errcheck] File %s has an error!\r\n", hashStr.c_str()); amountError++; }
+					else if (ecr == ECR_FILE_NOT_FOUND) { printf("[--errcheck] File %s was not found!\r\n", hashStr.c_str()); amountNotFound++; }
+					else if (ecr == ECR_ALL_OK) { amountNoError++; }
+					else exitWithError("Unknown ECR code");
+				}
+			}
+			
+			if (arg_json)
+			{
+				jsonOutput.set("files_no_error", filesNoError);
+				jsonOutput.set("files_not_found", filesNotFound);
+				jsonOutput.set("files_error", filesError);
+			}
+			else
+			{
+				printf("[--errcheck] %lu files checked for errors: %lu ok, %lu with error, %lu not found\r\n", amountNoError + amountError + amountNotFound, amountNoError, amountError, amountNotFound);
+			}
+		}
 		
 		
 		

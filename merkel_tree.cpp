@@ -1,5 +1,7 @@
 #include <memory>
 #include <iostream>
+#include <filesystem>
+#include <fstream>
 
 #include "sha256.h"
 #include "util.h"
@@ -129,6 +131,7 @@ MerkelNode::MerkelNode(std::istream& _serializedTree)
 		{
 			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
 			this->child0 = std::make_shared<MerkelNode>(_serializedTree);
+			//this->child0->parent = this->shared_from_this();
 		}
 		
 		nextLevel = (unsigned char)_serializedTree.peek();
@@ -136,6 +139,7 @@ MerkelNode::MerkelNode(std::istream& _serializedTree)
 		{
 			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
 			this->child1 = std::make_shared<MerkelNode>(_serializedTree);
+			//this->child1->parent = this->shared_from_this();
 		}
 	}
 }
@@ -235,13 +239,81 @@ bool MerkelTree::equals(const MerkelTree& _other) const
 	if (this->totalBytes != _other.totalBytes) return false;
 	return this->rootMerkelNode->equals(*_other.rootMerkelNode);
 }
-bool MerkelNode::equals(const MerkelNode& _other) const
+bool MerkelNode::equals(MerkelNode& _other)
 {
-	if (this->dataSize != _other.dataSize) return false;
 	if (this->level != _other.level) return false;
+	this->calcDataSize();
+	_other.calcDataSize();
+	if (this->dataSize != _other.dataSize) return false;
 	if ((this->child0 == nullptr) != (_other.child0 == nullptr)) return false;
 	if ((this->child1 == nullptr) != (_other.child1 == nullptr)) return false;
 	if (this->child0 != nullptr && !this->child0->equals(*_other.child0)) return false;
 	if (this->child1 != nullptr && !this->child1->equals(*_other.child1)) return false;
 	return true;
+}
+
+bool MerkelNode::errorCheck()
+{
+	if (this->child0 == nullptr && this->child1 != nullptr) return false;
+	if ((this->child0 == nullptr && this->child1 == nullptr) ^ (this->level == 0)) return false;
+	if (this->child0 != nullptr)
+	{
+		if (this->child0->level != this->level - 1) return false;
+		//if (this->child0->parent.get() != this) return false;
+		if (!this->child0->errorCheck()) return false;
+	}
+	if (this->child1 != nullptr)
+	{
+		if (this->child1->level != this->level - 1) return false;
+		//if (this->child1->parent.get() != this) return false;
+		if (!this->child1->errorCheck()) return false;
+	}
+	if (this->level != 0)
+	{
+		std::array<char, 32> recomputedHash;
+		if (child1 != nullptr)
+		{
+			SHA256 sha256;
+			sha256.update((unsigned char*)child0->getHash(false).data(), 32);
+			sha256.update((unsigned char*)child1->getHash(false).data(), 32);
+			sha256.final((unsigned char*)recomputedHash.data());
+		}
+		else
+		{
+			recomputedHash = child0->getHash(false);
+		}
+		if (this->hash != recomputedHash) return false;
+	}
+	return true;
+}
+
+bool MerkelTree::errorCheck()
+{
+	if (this->totalBytes != this->rootMerkelNode->dataSize) return false;
+	if (this->hash != this->rootMerkelNode->getHash(false)) return false;
+	if (!this->rootMerkelNode->errorCheck()) return false;
+	return true;
+}
+
+std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path)
+{
+	std::shared_ptr<MerkelTree> merkelTree = std::make_shared<MerkelTree>(true);
+	unsigned long fileSize = std::filesystem::file_size(_path);
+	unsigned long bytesRead = 0;
+	
+	if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
+	std::ifstream file(_path, std::ios_base::binary);
+	char buff[1024];
+	while (bytesRead < fileSize)
+	{
+		int amountToRead;
+		if (bytesRead + 1024 <= fileSize) amountToRead = 1024;
+		else amountToRead = fileSize - bytesRead;
+		readExactly(file, &buff[0], amountToRead);
+		merkelTree->addData(&buff[0], amountToRead);
+		bytesRead += amountToRead;
+	}
+	file.close();
+	merkelTree->finalize();
+	return merkelTree;
 }

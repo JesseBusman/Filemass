@@ -5,7 +5,7 @@
 #include <array>
 #include <ostream>
 
-class MerkelNode
+class MerkelNode : public std::enable_shared_from_this<MerkelNode>
 {
 public:
 	MerkelNode(int _level, std::shared_ptr<MerkelNode> _parent);
@@ -13,7 +13,7 @@ public:
 	void setData(const char* _data, int _amountBytes);
 	unsigned char level;
 	std::optional<std::array<char, 32>> hash = std::nullopt;
-	int dataSize = -1;
+	long dataSize = -1;
 	std::shared_ptr<MerkelNode> parent;
 	std::shared_ptr<MerkelNode> child0 = nullptr;
 	std::shared_ptr<MerkelNode> child1 = nullptr;
@@ -28,7 +28,8 @@ public:
 	bool isFull() const;
 	long calcDataSize();
 	void serialize(std::ostream& _dest);
-	bool equals(const MerkelNode& _other) const;
+	bool equals(MerkelNode& _other);
+	bool errorCheck();
 };
 
 class MerkelTree
@@ -48,4 +49,7 @@ public:
 	void addData(const char* data, int amountBytes);
 	void serialize(std::ostream& _dest);
 	bool equals(const MerkelTree& _other) const;
+	bool errorCheck();
 };
+
+std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path);
