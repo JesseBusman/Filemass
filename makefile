@@ -1,7 +1,7 @@
 CC       = gcc
 CPPC     = g++
 CFLAGS   = -ldl -O3 -pthread -lpthread -MMD -MP
-CPPFLAGS = -std=c++17 -O3 -ldl -pthread -lpthread -lstdc++ -MMD -MP -Wall -Wextra
+CPPFLAGS = -std=c++17 -O3 -ldl -pthread -lpthread -lstdc++ -lmagic -MMD -MP -Wall -Wextra
 CFILES   = $(wildcard *.c)
 CPPFILES = $(wildcard *.cpp)
 COBJFILES = $(CFILES:.c=.c.o)

@@ -10,6 +10,7 @@
 #include <locale>
 #include <array>
 #include <memory>
+#include <magic.h>
 
 #include "sqlite3.h"
 #include "util.h"
@@ -524,8 +525,33 @@ int main(int argc, char* argv[])
 				// wtf
 				return 1;
 			}
+			
+			const char *magic_full;
+			magic_t magic_cookie;
+			
+			magic_cookie = magic_open(MAGIC_MIME);
+			
+			if (magic_cookie == NULL)
+			{
+				printf("Unable to initialize magic library\n");
+				exit(1);
+				return 1;
+			}
+			
+			if (magic_load(magic_cookie, NULL) != 0)
+			{
+				printf("Cannot load magic database: %s\n", magic_error(magic_cookie));
+				magic_close(magic_cookie);
+				exit(1);
+				return 1;
+			}
+			
+			q(tagbase_db, "BEGIN TRANSACTION");
+			
 			for (unsigned int i=0; i<selected_file_paths.size(); i++)
 			{
+				// #original_path
+				
 				const auto& file_path = selected_file_paths[i];
 				if (file_path.length() == 0) continue;
 				const auto& file_hash = selected_file_hashes[i];
@@ -547,7 +573,24 @@ int main(int argc, char* argv[])
 				}
 				
 				Tag(tag_chain).addTo(file_hash, ZERO_HASH, file_hash, tagbase_db, true);
+				
+				
+				
+				
+				
+				// #mime_content_type
+				
+				magic_full = magic_file(magic_cookie, file_path.c_str());
+				
+				if (magic_full != nullptr)
+				{
+					Tag({"#mime_content_type", std::string(magic_full)}).addTo(file_hash, ZERO_HASH, file_hash, tagbase_db, true);
+				}
 			}
+			
+			magic_close(magic_cookie);
+			
+			q(tagbase_db, "COMMIT");
 		}
 		
 		
