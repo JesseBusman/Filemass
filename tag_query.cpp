@@ -22,7 +22,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 		sqlite3_bind_blob(stmt, 1, searchHash.data(), 32, SQLITE_STATIC);
 		sqlite3_bind_blob(stmt, 2, hashSum.data(), 32, SQLITE_STATIC);
 		int stepResult = sqlite3_step(stmt);
-		bool ret;
+		bool ret = false;
 		if (stepResult == SQLITE_ROW) ret = true;
 		else if (stepResult == SQLITE_DONE) ret = false;
 		else
@@ -70,7 +70,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			sqlite3_bind_blob(stmt, 1, searchHash.data(), 32, SQLITE_STATIC);
 			sqlite3_bind_blob(stmt, 2, hashSum.data(), 32, SQLITE_STATIC);
 			int stepResult = sqlite3_step(stmt);
-			bool ret;
+			bool ret = false;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
 			else exitWithError("Query error in matches #1 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
@@ -85,7 +85,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			sqlite3_bind_blob(stmt, 1, searchHash.data(), 32, SQLITE_STATIC);
 			sqlite3_bind_blob(stmt, 2, hashSum.data(), 32, SQLITE_STATIC);
 			int stepResult = sqlite3_step(stmt);
-			bool ret;
+			bool ret = false;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
 			else exitWithError("Query error in matches #2 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
@@ -106,7 +106,7 @@ bool TagQuery::matches(const std::array<char, 32>& hashSum, sqlite3* tagbase_db)
 			sqlite3_bind_blob(stmt, 3, searchHash.data(), 32, SQLITE_STATIC);
 			sqlite3_bind_blob(stmt, 4, searchHash.data(), 32, SQLITE_STATIC);
 			int stepResult = sqlite3_step(stmt);
-			bool ret;
+			bool ret = false;
 			if (stepResult == SQLITE_ROW) ret = true;
 			else if (stepResult == SQLITE_DONE) ret = false;
 			else exitWithError("Query error in matches #3 TagQueryType::HAS_DESCENDANT " + std::to_string(stepResult) + sqlite3_errmsg(tagbase_db));
