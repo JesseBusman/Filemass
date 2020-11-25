@@ -495,7 +495,6 @@ int main(int argc, char* argv[])
 			for (auto hash : selected_file_hashes)
 			{
 				std::string hashStr = bytes_to_hex(hash);
-				std::string blblbl = selected_repository->hashToFilePath(hash);
 				
 				ErrorCheckResult ecr = selected_repository->errorCheck(hash);
 				
@@ -524,6 +523,71 @@ int main(int argc, char* argv[])
 			else
 			{
 				printf("[--errcheck] %lu files checked for errors: %lu ok, %lu with error, %lu not found\r\n", amountNoError + amountError + amountNotFound, amountNoError, amountError, amountNotFound);
+			}
+		}
+		
+		
+		
+		
+		
+		/////////////////////////////////////////////////////
+		//// --errfix
+		
+		if (arg_errcheck)
+		{
+			if (selected_repository == nullptr)
+			{
+				exitWithError("A repository must be selected to use --errcheck");
+			}
+			
+			std::shared_ptr<JsonValue_Array> filesFailedToFix = std::make_shared<JsonValue_Array>();
+			std::shared_ptr<JsonValue_Array> filesFixed = std::make_shared<JsonValue_Array>();
+			std::shared_ptr<JsonValue_Array> filesWereNotBroken = std::make_shared<JsonValue_Array>();
+			std::shared_ptr<JsonValue_Array> filesNotFound = std::make_shared<JsonValue_Array>();
+			
+			unsigned long amountFailedToFix = 0;
+			unsigned long amountFixed = 0;
+			unsigned long amountNotBroken = 0;
+			unsigned long amountNotFound = 0;
+			
+			for (auto hash : selected_file_hashes)
+			{
+				std::string hashStr = bytes_to_hex(hash);
+				
+				ErrorFixResult efr = selected_repository->errorFix(hash);
+				
+				if (arg_json)
+				{
+					if (efr == EFR_FIXED) { filesFixed->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr))); amountFixed++; }
+					else if (efr == EFR_FAILED_TO_FIX) { filesFailedToFix->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr))); amountFailedToFix++; }
+					else if (efr == EFR_FILE_NOT_FOUND) { filesNotFound->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr))); amountNotFound++; }
+					else if (efr == EFR_WAS_NOT_BROKEN) { filesWereNotBroken->array.push_back(std::shared_ptr<JsonValue>(new JsonValue_String(hashStr))); amountNotBroken++; }
+					else exitWithError("Unknown ECR code");
+				}
+				else
+				{
+					if (efr == EFR_FIXED) { printf("[--errfix] :) File %s has been fixed!\r\n", hashStr.c_str()); amountFixed++; }
+					else if (efr == EFR_FAILED_TO_FIX) { printf("[--errfix] :( File %s could not be fixed!\r\n", hashStr.c_str()); amountFailedToFix++; }
+					else if (efr == EFR_WAS_NOT_BROKEN) { printf("[--errfix] :) File %s was not broken!\r\n", hashStr.c_str()); amountNotBroken++; }
+					else if (efr == EFR_FILE_NOT_FOUND) { printf("[--errfix] :| File %s was not found!\r\n", hashStr.c_str()); amountNotFound++; }
+					else exitWithError("Unknown ECR code");
+				}
+			}
+			
+			if (arg_json)
+			{
+				jsonOutput.set("files_fixed", filesFixed);
+				jsonOutput.set("files_failed_to_fix", filesFailedToFix);
+				jsonOutput.set("files_not_found", filesNotFound);
+				jsonOutput.set("files_were_not_broken", filesWereNotBroken);
+			}
+			else
+			{
+				printf("[--errcheck] Tried to fix %lu files:\n");
+				printf("             - %lu fixed\n", amountFixed);
+				printf("             - %lu failed to fix\n", amountFailedToFix);
+				printf("             - %lu not found\n", amountNotFound);
+				printf("             - %lu were not broken\n", amountNotBroken);
 			}
 		}
 		

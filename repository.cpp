@@ -177,3 +177,52 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 	
 	return ECR_ALL_OK;
 }
+
+ErrorFixResult Repository::errorFix(std::array<char, 32> _file)
+{
+	int fixAttempts = 0;
+checkFixed:
+	ErrorCheckResult ecr = errorCheck(_file);
+	if (ecr == ECR_ERROR) ;
+	else if (ecr == ECR_ALL_OK) return (fixAttempts == 0) ? EFR_WAS_NOT_BROKEN : EFR_FIXED;
+	else if (ecr == ECR_FILE_NOT_FOUND) return EFR_FILE_NOT_FOUND;
+	else exitWithError("wtf");
+	
+	fixAttempts++;
+	if (fixAttempts > 3) return EFR_FAILED_TO_FIX;
+	
+	std::string filePath = this->hashToFilePath(_file);
+	std::string treePath = this->hashToTreePath(_file);
+	
+	std::shared_ptr<MerkelTree> newTree = generateMerkelTreeFromFilePath(filePath);
+	
+	std::ifstream treeIfs(treePath);
+	MerkelTree storedTree(treeIfs);
+	
+	// If the .fmtree file is larger than it should be...
+	if (!treeIfs.eof())
+	{
+		// If the hashes are all equal...
+		if (*storedTree.hash == _file && _file == *newTree->hash)
+		{
+			// If the trees are equal...
+			if (newTree->equals(storedTree))
+			{
+				// ... just truncate the tree file
+				long pos = treeIfs.tellg();
+				if (pos < 0) exitWithError("tellg() < 0, this should never happen"); // wtf
+				treeIfs.close();
+				std::filesystem::resize_file(treePath, pos);
+				goto checkFixed;
+			}
+			
+			// If the trees are not equal
+			else
+			{
+				
+			}
+		}
+	}
+	
+	goto checkFixed;
+}
