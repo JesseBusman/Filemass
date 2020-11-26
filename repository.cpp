@@ -126,13 +126,33 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 	if (!std::filesystem::exists(destParityPath))
 	{
 		std::ifstream ifs(destFilePath);
-		long parityBlockSize = 1024;
-		long parityBlockCount = (sourceFileSize + 1) / 1024 / 16;
-		char (*parityBlocks)[1024] = new char[parityBlockCount][1024];
-		for (long i=0; i<parityBlockCount; i++)
-		for (int j=0; j<1024; j++)
-			parityBlocks[i][j] = 0x00;
-		//memset(parity, 0x00, parityBlockCount * 1024);
+		
+		const unsigned long amountOfBlocksInSourceFile = (sourceFileSize+1023) / 1024;
+		unsigned long amountOfBlocksInSourceFile_log2 = 0;
+		{
+			unsigned long temp = amountOfBlocksInSourceFile;
+			while (temp > 0)
+			{
+				temp >>= 1;
+				amountOfBlocksInSourceFile_log2++;
+			}
+		}
+		
+		const int minDivisor = 2;
+		const int maxDivisor = 11; //(amountOfBlocksInSourceFile >> (amountOfBlocksInSourceFile_log2 / 2)) / ; // TODO make amount of parity configurable
+		
+		char** divisor_to_mod_to_parityBlock[maxDivisor+1];
+		
+		for (int d=minDivisor; d<=maxDivisor; d++)
+		{
+			divisor_to_mod_to_parityBlock[d] = new char*[d];
+			for (int m=0; m<d; m++)
+			{
+				divisor_to_mod_to_parityBlock[d][m] = new char[1024];
+				for (int i=0; i<1024; i++) divisor_to_mod_to_parityBlock[d][m][i] = 0x00;
+			}
+		}
+		
 		char buff[1024];
 		long totalRead = 0;
 		long blockIndex = 0;
@@ -141,29 +161,32 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 			ifs.read(buff, 1024);
 			int amountRead = ifs.gcount();
 			
-			for (int i=0; i<amountRead; i++)
+			for (int d=minDivisor; d<=maxDivisor; d++)
 			{
-				parityBlocks[blockIndex][i] ^= buff[i];
+				for (int i=0; i<amountRead; i++)
+				{
+					divisor_to_mod_to_parityBlock[d][blockIndex%d][i] ^= buff[i];
+				}
 			}
 			
-			totalRead += amountRead;
+			if (amountRead != 1024 && !ifs.eof()) exitWithError("Failed to generate parity blocks (#2)");
 			
-			blockIndex = (blockIndex+1) % parityBlockCount;
+			totalRead += amountRead;
+			blockIndex++;
 		}
 		
-		ifs.close();
-		
-		if (totalRead != sourceFileSize)
-		{
-			exitWithError("Failed to generate parity blocks");
-		}
+		if (totalRead != sourceFileSize) exitWithError("Failed to generate parity blocks");
+		if (blockIndex != amountOfBlocksInSourceFile) exitWithError("Failed to generate parity blocks (#3)");
 		
 		std::ofstream parityOfs(destParityPath);
-		parityOfs.write((char*)&parityBlockCount, 8);
-		parityOfs.write((char*)&parityBlockSize, 8);
-		for (long i=0; i<parityBlockCount; i++)
+		parityOfs.write((char*)&minDivisor, 4);
+		parityOfs.write((char*)&maxDivisor, 4);
+		for (int d=minDivisor; d<=maxDivisor; d++)
 		{
-			parityOfs.write(&parityBlocks[i][0], 1024);
+			for (int m=0; m<d; m++)
+			{
+				parityOfs.write(divisor_to_mod_to_parityBlock[d][m], 1024);
+			}
 		}
 		parityOfs.close();
 	}
@@ -196,7 +219,7 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 {
 	std::string filePath = this->hashToFilePath(_file);
 	std::string treePath = this->hashToTreePath(_file);
-		
+	
 	std::ifstream treeIfs(treePath);
 	std::ifstream fileIfs(filePath);
 	
@@ -211,6 +234,7 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 	{
 		fileIfs.read(&buff[0], 1024);
 		int amountRead = fileIfs.gcount();
+		if (amountRead < 0) exitWithError("amountRead<0");
 		SHA256 sha256;
 		sha256.init();
 		sha256.update((const unsigned char*)&buff[0], amountRead);
@@ -255,6 +279,107 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 	return ECR_ALL_OK;
 }
 
+bool tryFixBlockUsingParityAndHash(const std::string& filePath, std::ifstream& file, std::istream& parityFile, long blockIndexToFix, char* _buff, int _buffSize, const std::array<char, 32>& _hash)
+{
+	if (DEBUGGING) printf("tryFixBlockUsingParityAndHash blockIndexToFix=%i _buffSize=%i\r\n", (int)blockIndexToFix, _buffSize);
+	
+	
+	file.seekg(0, file.beg);
+	parityFile.seekg(0, parityFile.beg);
+	
+	int minDivisor;
+	int maxDivisor;
+	
+	parityFile.read((char*)&minDivisor, 4);
+	parityFile.read((char*)&maxDivisor, 4);
+	
+	if (DEBUGGING) printf("minDivisor=%i maxDivisor=%i\r\n", minDivisor, maxDivisor);
+	
+	int divisor_to_mod[maxDivisor+1];
+	long divisor_to_index[maxDivisor+1];
+	
+	for (int d=minDivisor; d<=maxDivisor; d++)
+	{
+		divisor_to_mod[d] = blockIndexToFix % d;
+		if (d == minDivisor) divisor_to_index[d] = 8;
+		else divisor_to_index[d] = divisor_to_index[d-1] + (d-1) * 1024;
+	}
+	
+	
+	for (int d=maxDivisor; d>=minDivisor; d--)
+	{
+		int m = divisor_to_mod[d];
+		if (DEBUGGING) printf("Trying to fix with parity divisor %i modulo %i\r\n", d, m);
+		
+		char theParity[1024];
+		
+		parityFile.seekg(divisor_to_index[d] + m*1024, file.beg);
+		if (parityFile.tellg() != divisor_to_index[d] + m*1024) exitWithError("Failed to seek in parity file");
+		parityFile.read(theParity, 1024);
+		if (parityFile.gcount() != 1024) exitWithError("Failed to read from parity file");
+		
+		char fileParity[1024];
+		for (int i=0; i<1024; i++) fileParity[i] = 0x00;
+		
+		file.seekg(m * 1024, file.beg);
+		if (file.tellg() != m*1024) { printf("tellg=%i eof=%i\r\n", file.tellg(), file.eof()); exitWithError("seekg failed"); }
+		
+		long currentBlockIndex = m;
+		while (!file.eof())
+		{
+			char buff[1024];
+			
+			file.read(buff, 1024);
+			int amountRead = file.gcount();
+			
+			if (amountRead != 1024 && !file.eof())
+			{
+				if (DEBUGGING) printf("amountRead=%i file.eof()=%i file.tellg()=%i\r\n", amountRead, file.eof(), file.tellg());
+				exitWithError("adfskjsdjkf");
+			}
+			
+			if (currentBlockIndex == blockIndexToFix)
+			{
+				if (DEBUGGING) printf("skipping block index to fix\r\n");
+			}
+			else
+			{
+				for (int i=0; i<amountRead; i++) fileParity[i] ^= buff[i];
+			}
+			
+			if (file.eof()) break;
+			
+			file.seekg((d-1) * 1024, file.cur);
+			currentBlockIndex += d;
+		}
+		
+		// Reset eof and fail flags
+		// file.clear();
+		file.close();
+		file = std::ifstream(filePath);
+		
+		
+		for (int i=0; i<1024; i++) fileParity[i] ^= theParity[i];
+		
+		std::array<char, 32> newHash;
+		SHA256 sha256;
+		sha256.init();
+		sha256.update((const unsigned char*)&fileParity[0], _buffSize);
+		sha256.final((unsigned char*)newHash.data());
+		
+		if (newHash == _hash)
+		{
+			if (DEBUGGING) printf("Fixed with parity! :D\r\n");
+			
+			for (int i=0; i<_buffSize; i++) _buff[i] = fileParity[i];
+			return true;
+		}
+	}
+	
+	if (DEBUGGING) printf("tryFixBlockUsingParityAndHash failed :(\r\n");
+	
+	return false;
+}
 
 bool tryFixBlockUsingHash(char* _buff, int _buffSize, const std::array<char, 32>& _hash)
 {
@@ -372,11 +497,13 @@ checkFixed:
 	
 	std::string filePath = this->hashToFilePath(_file);
 	std::string treePath = this->hashToTreePath(_file);
+	std::string parityPath = this->hashToParityPath(_file);
 	
 	std::shared_ptr<MerkelTree> newTree = generateMerkelTreeFromFilePath(filePath);
 	
-	std::ifstream treeIfs(treePath);
-	std::fstream fileFs(filePath, std::ios::binary|std::ios::out|std::ios::in);
+	std::ifstream treeIfs(treePath, std::ios::binary);
+	std::ifstream fileIfs(filePath, std::ios::binary);
+	std::ifstream parityIfs(parityPath, std::ios::binary);
 	
 	MerkelTree storedTree(true);
 	try
@@ -435,9 +562,9 @@ checkFixed:
 		
 		// Check file length
 		
-		fileFs.seekg(0, fileFs.end);
-		long currentFileLength = fileFs.tellg();
-		fileFs.seekg(0, fileFs.beg);
+		fileIfs.seekg(0, fileIfs.end);
+		long currentFileLength = fileIfs.tellg();
+		fileIfs.seekg(0, fileIfs.beg);
 		
 		if (currentFileLength > storedTree.getTotalBytes())
 		{
@@ -457,7 +584,7 @@ checkFixed:
 			if (newTree->equals(storedTree))
 			{
 				// ...just truncate the file
-				fileFs.close();
+				fileIfs.close();
 				std::filesystem::resize_file(filePath, storedTree.getTotalBytes());
 				goto checkFixed;
 			}
@@ -471,9 +598,9 @@ checkFixed:
 					if (storedTreeBlockHashes[blockIndex] != newTreeBlockHashes[blockIndex])
 					{
 						char buff[1024];
-						fileFs.seekg(blockIndex * 1024, fileFs.beg);
-						fileFs.read(&buff[0], 1024);
-						int amountRead = fileFs.gcount();
+						fileIfs.seekg(blockIndex * 1024, fileIfs.beg);
+						fileIfs.read(&buff[0], 1024);
+						int amountRead = fileIfs.gcount();
 						
 						if (tryFixBlockUsingHash(&buff[0], amountRead, storedTreeBlockHashes[blockIndex]) == true)
 						{
@@ -482,8 +609,22 @@ checkFixed:
 							
 							if (DEBUGGING) printf("A mischief was fixed :D\r\n");
 							
-							fileFs.seekg(-amountRead, std::ios_base::cur);
-							fileFs.write(&buff[0], amountRead);
+							long pos = fileIfs.tellg();
+							if (pos <= 0) exitWithError("askdjfjkasdfjkdsf");
+							
+							fileIfs.close();
+							
+							{
+								std::fstream fileIOfs(filePath, std::ios::in | std::ios::out | std::ios::binary);
+								fileIOfs.seekg(pos-amountRead, std::ios_base::beg);
+								fileIOfs.write(&buff[0], amountRead);
+								if (fileIOfs.tellg() != pos) exitWithError("askaskdjdsjkaf");
+								fileIOfs.close();
+							}
+							
+							fileIfs = std::ifstream(filePath, std::ios::in | std::ios::binary);
+							fileIfs.seekg(pos);
+							if (fileIfs.tellg() != pos) exitWithError("askaskdjdsjkaf");
 						}
 					}
 				}
@@ -514,9 +655,10 @@ checkFixed:
 			
 			for (long blockIndex=0; blockIndex<blockhashes.size(); blockIndex++)
 			{
-				if (DEBUGGING) printf("Reading blockIndex=%lu/%lu\r\n", blockIndex, blockhashes.size());
-				fileFs.read(&buff[0], 1024);
-				int amountRead = fileFs.gcount();
+				fileIfs.seekg(blockIndex * 1024, fileIfs.beg);
+				fileIfs.read(&buff[0], 1024);
+				int amountRead = fileIfs.gcount();
+				if (amountRead <= 0) exitWithError("fileIfs.gcount() <= 0");
 				SHA256 sha256;
 				sha256.init();
 				sha256.update((const unsigned char*)&buff[0], amountRead);
@@ -535,17 +677,69 @@ checkFixed:
 				{
 					// We found the mischief!
 					
-					if (DEBUGGING) printf("Mischief found!\r\n");
+					if (DEBUGGING)
+					{
+						std::string fs = bytes_to_hex(hashFromFile);
+						std::string ts = bytes_to_hex(blockhashes[blockIndex]);
+						
+						printf("Mischief found in blockIndex=%i hashFromFile=%s hash from tree=%s amountRead=%i!\r\n", blockIndex, fs.c_str(), ts.c_str(), amountRead);
+					}
 					
 					if (tryFixBlockUsingHash(&buff[0], amountRead, blockhashes[blockIndex]) == true)
 					{
 						// YAY :)
 						// Write the correct block to the file
 						
-						if (DEBUGGING) printf("Mischief fixed :D\r\n");
+						if (DEBUGGING) printf("Mischief fixed using hash :D\r\n");
 						
-						fileFs.seekg(-amountRead, std::ios_base::cur);
-						fileFs.write(&buff[0], amountRead);
+						//long pos = fileIfs.tellg();
+						//if (pos <= 0) exitWithError("askdjfjkasdfjkdsf");
+						long pos = blockIndex * 1024 + amountRead;
+						
+						fileIfs.close();
+						
+						{
+							std::fstream fileIOfs(filePath, std::ios::in | std::ios::out | std::ios::binary);
+							fileIOfs.seekg(pos-amountRead, std::ios_base::beg);
+							fileIOfs.write(&buff[0], amountRead);
+							if (fileIOfs.tellg() != pos) { printf("pos=%i fileIOfs.tellg()=%i\r\n", (int)pos, (int)fileIOfs.tellg()); exitWithError("askaskdjdsjkaf"); }
+							fileIOfs.close();
+						}
+						
+						fileIfs = std::ifstream(filePath, std::ios::in | std::ios::binary);
+						fileIfs.seekg(pos);
+						if (fileIfs.tellg() != pos) exitWithError("askaskdjdsjkaf fileIfs.tellg() != pos");
+						
+						/*
+						fileIfs.seekg(-amountRead, std::ios_base::cur);
+						fileIfs.write(&buff[0], amountRead);
+						*/
+					}
+					else if (tryFixBlockUsingParityAndHash(filePath, fileIfs, parityIfs, blockIndex, &buff[0], amountRead, blockhashes[blockIndex]))
+					{
+						if (DEBUGGING) printf("Mischief fixed using parity :D\r\n");
+						
+						
+						//long pos = fileIfs.tellg();
+						//if (pos <= 0) exitWithError("askdjfjkasdfjkdsf");
+						long pos = blockIndex * 1024 + amountRead;
+						
+						fileIfs.close();
+						
+						{
+							std::fstream fileIOfs(filePath, std::ios::in | std::ios::out | std::ios::binary);
+							fileIOfs.seekg(pos-amountRead, std::ios_base::beg);
+							fileIOfs.write(&buff[0], amountRead);
+							if (fileIOfs.tellg() != pos) { printf("pos=%i fileIOfs.tellg()=%i\r\n", (int)pos, (int)fileIOfs.tellg()); exitWithError("askaskdjdsjkaf"); }
+							fileIOfs.close();
+						}
+						
+						fileIfs = std::ifstream(filePath, std::ios::in | std::ios::binary);
+						fileIfs.seekg(pos);
+						if (fileIfs.tellg() != pos) exitWithError("askaskdjdsjkaf fileIfs.tellg() != pos");
+						
+						/*fileIfs.seekg(-amountRead, std::ios_base::cur);
+						fileIfs.write(&buff[0], amountRead);*/
 					}
 					else
 					{
@@ -554,12 +748,12 @@ checkFixed:
 				}
 			}
 			
-			fileFs.close();
+			fileIfs.close();
 			treeIfs.close();
 			goto checkFixed;
 		}
 		
-		fileFs.close();
+		fileIfs.close();
 		treeIfs.close();
 	}
 	else if (storedTree.errorCheck() && *storedTree.hash != _file)
