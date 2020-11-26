@@ -77,6 +77,7 @@ int main(int argc, char* argv[])
 		bool arg_init_tagbase = false;
 		bool arg_add_fs_tags = false;
 		bool arg_errcheck = false;
+		bool arg_errfix = false;
 		
 		for (int i = 1; i < argc; i++)
 		{
@@ -108,6 +109,10 @@ int main(int argc, char* argv[])
 			else if (field == "errcheck")
 			{
 				arg_errcheck = true;
+			}
+			else if (field == "errfix")
+			{
+				arg_errfix = true;
 			}
 			else if (field == "debug")
 			{
@@ -533,7 +538,7 @@ int main(int argc, char* argv[])
 		/////////////////////////////////////////////////////
 		//// --errfix
 		
-		if (arg_errcheck)
+		if (arg_errfix)
 		{
 			if (selected_repository == nullptr)
 			{
@@ -583,11 +588,11 @@ int main(int argc, char* argv[])
 			}
 			else
 			{
-				printf("[--errcheck] Tried to fix %lu files:\n");
-				printf("             - %lu fixed\n", amountFixed);
-				printf("             - %lu failed to fix\n", amountFailedToFix);
-				printf("             - %lu not found\n", amountNotFound);
-				printf("             - %lu were not broken\n", amountNotBroken);
+				printf("[--errfix] Tried to fix %lu files:\n", amountFixed+amountFailedToFix+amountNotFound+amountNotBroken);
+				printf("           - %lu fixed\n", amountFixed);
+				printf("           - %lu failed to fix\n", amountFailedToFix);
+				printf("           - %lu not found\n", amountNotFound);
+				printf("           - %lu were not broken\n", amountNotBroken);
 			}
 		}
 		

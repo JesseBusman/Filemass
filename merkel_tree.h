@@ -4,6 +4,11 @@
 #include <optional>
 #include <array>
 #include <ostream>
+#include <vector>
+
+class Error_MerkelTreeFileCorrupted
+{
+};
 
 class MerkelNode : public std::enable_shared_from_this<MerkelNode>
 {
@@ -29,7 +34,8 @@ public:
 	long calcDataSize();
 	void serialize(std::ostream& _dest);
 	bool equals(MerkelNode& _other);
-	bool errorCheck();
+	void listBlockHashes(std::vector<std::array<char, 32>>& _out) const;
+	bool errorCheck(bool _isRightMostNode=true);
 };
 
 class MerkelTree
@@ -50,6 +56,7 @@ public:
 	void serialize(std::ostream& _dest);
 	bool equals(const MerkelTree& _other) const;
 	bool errorCheck();
+	std::vector<std::array<char, 32>> listBlockHashes() const;
 };
 
-std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path);
+std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path, long maxBytesToRead=-1);

@@ -9,6 +9,8 @@
 #include "merkel_tree.h"
 #include "sha256.h"
 
+#define DEBUGGING false
+
 Repository::Repository(std::string _path) :
 	path(_path)
 {
@@ -138,15 +140,16 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 {
 	std::string filePath = this->hashToFilePath(_file);
 	std::string treePath = this->hashToTreePath(_file);
-	
-	bool treeFileIsTooLong = false;
-	
+		
 	std::ifstream treeIfs(treePath);
 	std::ifstream fileIfs(filePath);
 	
 	char buff[1024];
 	std::array<char, 32> hashFromTree;
 	std::array<char, 32> hashFromFile;
+	
+	long lengthAccordingToTreeFile = -1;
+	long totalRead = 0;
 	
 	while (1)
 	{
@@ -161,21 +164,137 @@ ErrorCheckResult Repository::errorCheck(std::array<char, 32> _file)
 		{
 			treeIfs.read(buff, 1);
 			if (buff[0] == 0) break;
-			else treeIfs.read(buff, 8 + 32);
+			else
+			{
+				if (lengthAccordingToTreeFile == -1)
+				{
+					treeIfs.read((char*)&lengthAccordingToTreeFile, 8);
+					treeIfs.read(buff, 32);
+				}
+				else
+				{
+					treeIfs.read(buff, 8 + 32);
+				}
+			}
 		}
-		if (treeIfs.gcount() != 1) return ECR_ERROR;
-		treeIfs.read(buff, 8);
+		if (treeIfs.gcount() != 1) { if (DEBUGGING) { printf("Repository::errorCheck(): treeIfs.gcount() != 1\n"); } return ECR_ERROR; }
+		if (lengthAccordingToTreeFile == -1) treeIfs.read((char*)&lengthAccordingToTreeFile, 8);
+		else treeIfs.read(buff, 8);
+		if (treeIfs.gcount() != 8) { if (DEBUGGING) { printf("Repository::errorCheck(): treeIfs.gcount() != 8\n"); } return ECR_ERROR; }
 		treeIfs.read(hashFromTree.data(), 32);
+		if (treeIfs.gcount() != 32) { if (DEBUGGING) { printf("Repository::errorCheck(): treeIfs.gcount() != 32\n"); } return ECR_ERROR; }
 		
-		if (hashFromTree != hashFromFile) return ECR_ERROR;
+		if (hashFromTree != hashFromFile) { if (DEBUGGING) { printf("Repository::errorCheck(): hashFromTree != hashFromFile\n"); } return ECR_ERROR; }
+		
+		totalRead += amountRead;
 		
 		if (amountRead != 1024) break;
 	}
+	
+	if (lengthAccordingToTreeFile != totalRead) { if (DEBUGGING) { printf("Repository::errorCheck(): lengthAccordingToTreeFile=%lu != totalRead=%lu\n", lengthAccordingToTreeFile, totalRead); } return ECR_ERROR; }
 	
 	fileIfs.close();
 	treeIfs.close();
 	
 	return ECR_ALL_OK;
+}
+
+
+bool tryFixBlockUsingHash(char* _buff, int _buffSize, const std::array<char, 32>& _hash)
+{
+	static char prevShiftedChar;
+	
+	std::array<char, 32> newHash;
+	
+	// Try to fix 2 adjacent swapped bytes
+	for (int i=0; i<_buffSize-1; i++)
+	{
+		std::swap(_buff[i], _buff[i+1]);
+		
+		SHA256 sha256;
+		sha256.init();
+		sha256.update((const unsigned char*)&_buff[0], _buffSize);
+		sha256.final((unsigned char*)newHash.data());
+		if (newHash == _hash) return true;
+		
+		std::swap(_buff[i], _buff[i+1]);
+	}
+	
+	// Try to fix 1 modified byte
+	for (int i=0; i<_buffSize; i++)
+	{
+		char orig = _buff[i];
+		for (int j=0; j<256; j++)
+		{
+			if (j == orig) continue;
+			_buff[i] = (char)j;
+			SHA256 sha256;
+			sha256.init();
+			sha256.update((const unsigned char*)&_buff[0], _buffSize);
+			sha256.final((unsigned char*)newHash.data());
+			if (newHash == _hash) return true;
+		}
+		_buff[i] = orig;
+	}
+	
+	// Try to fix 1 inserted byte
+	char buff1[1];
+	for (int i=0; i<_buffSize; i++)
+	{
+		for (int j=-1; j<256; j++)
+		{
+			if (j == -1) buff1[0] = prevShiftedChar;
+			else buff1[0] = (char)j;
+			SHA256 sha256;
+			sha256.init();
+			sha256.update((const unsigned char*)&_buff[0], i);
+			sha256.update((const unsigned char*)&buff1[0], 1);
+			sha256.update((const unsigned char*)&_buff[i], _buffSize - i - 1);
+			sha256.final((unsigned char*)newHash.data());
+			if (newHash == _hash)
+			{
+				prevShiftedChar = _buff[_buffSize-1];
+				for (int k=_buffSize-1; k>i; k--)
+				{
+					_buff[k] = _buff[k-1];
+				}
+				_buff[i] = buff1[0];
+				return true;
+			}
+		}
+	}
+	
+	// Try to fix 2 modified bytes
+	/*
+	for (int i=0; i<_buffSize; i++)
+	{
+		char orig_i = _buff[i];
+		for (int k=i+1; k<_buffSize; k++)
+		{
+			char orig_k = _buff[k];
+			for (int j=0; j<256; j++)
+			{
+				if (j == orig_i) continue;
+				_buff[i] = (char)j;
+				for (int m=0; m<256; m++)
+				{
+					if (m == orig_k) continue;
+					_buff[k] = m;
+					SHA256 sha256;
+					sha256.init();
+					sha256.update((const unsigned char*)&_buff[0], _buffSize);
+					sha256.final((unsigned char*)newHash.data());
+					if (newHash == _hash) return true;
+				}
+			}
+			_buff[i] = orig_i;
+			_buff[k] = orig_k;
+		}
+	}
+	*/
+	if (DEBUGGING) printf("tryFixBlockUsingHash failed :(\r\n");
+	
+	return false;
 }
 
 ErrorFixResult Repository::errorFix(std::array<char, 32> _file)
@@ -189,7 +308,11 @@ checkFixed:
 	else exitWithError("wtf");
 	
 	fixAttempts++;
-	if (fixAttempts > 3) return EFR_FAILED_TO_FIX;
+	if (fixAttempts > 3)
+	{
+		if (DEBUGGING) printf("File is not fixed after 3 runs of errorFix(..). giving up\r\n");
+		return EFR_FAILED_TO_FIX;
+	}
 	
 	std::string filePath = this->hashToFilePath(_file);
 	std::string treePath = this->hashToTreePath(_file);
@@ -197,32 +320,199 @@ checkFixed:
 	std::shared_ptr<MerkelTree> newTree = generateMerkelTreeFromFilePath(filePath);
 	
 	std::ifstream treeIfs(treePath);
-	MerkelTree storedTree(treeIfs);
+	std::fstream fileFs(filePath, std::ios::binary|std::ios::out|std::ios::in);
 	
-	// If the .fmtree file is larger than it should be...
-	if (!treeIfs.eof())
+	MerkelTree storedTree(true);
+	try
 	{
-		// If the hashes are all equal...
-		if (*storedTree.hash == _file && _file == *newTree->hash)
+		storedTree = MerkelTree(treeIfs);
+	}
+	catch (Error_MerkelTreeFileCorrupted)
+	{
+		treeIfs.close();
+		
+		// The stored tree file is corrupted.
+		
+		// If the new tree has the correct hash...
+		if (*newTree->hash == _file)
 		{
-			// If the trees are equal...
-			if (newTree->equals(storedTree))
-			{
-				// ... just truncate the tree file
-				long pos = treeIfs.tellg();
-				if (pos < 0) exitWithError("tellg() < 0, this should never happen"); // wtf
-				treeIfs.close();
-				std::filesystem::resize_file(treePath, pos);
-				goto checkFixed;
-			}
-			
-			// If the trees are not equal
-			else
-			{
-				
-			}
+			// ...just write the new tree to the file.
+			std::ofstream treeOfs(treePath);
+			newTree->serialize(treeOfs);
+			treeOfs.close();
+			goto checkFixed;
 		}
+		
+		// TODO
+		if (DEBUGGING) printf("TODO: merkel file corrupted\r\n");
+		goto checkFixed;
 	}
 	
+	// If the new tree's hash is equal to the file hash, but the stored tree is corrupted or not equal to the new tree...
+	if (_file == *newTree->hash && (!newTree->equals(storedTree) || !storedTree.errorCheck()))
+	{
+		if (!newTree->errorCheck()) exitWithError("Failed to generate merkel tree");
+		
+		treeIfs.close();
+		// ...just write the new tree to the file.
+		std::ofstream treeOfs(treePath);
+		newTree->serialize(treeOfs);
+		treeOfs.close();
+		goto checkFixed;
+	}
+	
+	// If the .fmtree file is larger than it should be, and everything else is fine...
+	if (!treeIfs.eof() && _file == *newTree->hash && newTree->equals(storedTree))
+	{
+		// ... just truncate the tree file
+		long pos = treeIfs.tellg();
+		if (pos < 0) exitWithError("tellg() < 0, this should never happen"); // wtf
+		treeIfs.close();
+		std::filesystem::resize_file(treePath, pos);
+		goto checkFixed;
+	}
+	
+	// If the new tree's hash is not equal to the file hash, but the stored tree is valid and the stored tree hash is equal to the file hash...
+	if (storedTree.errorCheck() && *storedTree.hash == _file)
+	{
+		// ... then the file is corrupted.
+		
+		// Check file length
+		
+		fileFs.seekg(0, fileFs.end);
+		long currentFileLength = fileFs.tellg();
+		fileFs.seekg(0, fileFs.beg);
+		
+		if (currentFileLength > storedTree.getTotalBytes())
+		{
+			// The file is too long!
+			
+			if (DEBUGGING) printf("File is too long!\r\n");
+			
+			newTree = generateMerkelTreeFromFilePath(filePath, storedTree.getTotalBytes());
+			
+			if (!newTree->errorCheck())
+			{
+				// wtf
+				exitWithError("Fatal: Failed to generate merkel tree properly!\r\n");
+			}
+			
+			// If the first storedTree.calcDataSize() bytes of the file match the stored tree perfectly...
+			if (newTree->equals(storedTree))
+			{
+				// ...just truncate the file
+				fileFs.close();
+				std::filesystem::resize_file(filePath, storedTree.getTotalBytes());
+				goto checkFixed;
+			}
+			else
+			{
+				std::vector<std::array<char, 32>> storedTreeBlockHashes = storedTree.listBlockHashes();
+				std::vector<std::array<char, 32>> newTreeBlockHashes = newTree->listBlockHashes();
+				
+				for (long blockIndex=0; blockIndex<storedTreeBlockHashes.size() && blockIndex<newTreeBlockHashes.size(); blockIndex++)
+				{
+					if (storedTreeBlockHashes[blockIndex] != newTreeBlockHashes[blockIndex])
+					{
+						char buff[1024];
+						fileFs.seekg(blockIndex * 1024, fileFs.beg);
+						fileFs.read(&buff[0], 1024);
+						int amountRead = fileFs.gcount();
+						
+						if (tryFixBlockUsingHash(&buff[0], amountRead, storedTreeBlockHashes[blockIndex]) == true)
+						{
+							// YAY :)
+							// Write the correct block to the file
+							
+							if (DEBUGGING) printf("A mischief was fixed :D\r\n");
+							
+							fileFs.seekg(-amountRead, std::ios_base::cur);
+							fileFs.write(&buff[0], amountRead);
+						}
+					}
+				}
+				goto checkFixed;
+			}
+		}
+		else if (currentFileLength < storedTree.getTotalBytes())
+		{
+			// The file is too short!
+			
+			if (DEBUGGING) printf("File is too short!\r\n");
+			
+			// TODO
+			goto checkFixed;
+		}
+		else
+		{
+			// The file has the correct length!
+			
+			if (DEBUGGING) printf("File has the correct length!\r\n");
+			
+			// Search for the corruption, block by block.
+			
+			std::vector<std::array<char, 32>> blockhashes = storedTree.listBlockHashes();
+			
+			char buff[1024];
+			std::array<char, 32> hashFromFile;
+			
+			for (long blockIndex=0; blockIndex<blockhashes.size(); blockIndex++)
+			{
+				if (DEBUGGING) printf("Reading blockIndex=%lu/%lu\r\n", blockIndex, blockhashes.size());
+				fileFs.read(&buff[0], 1024);
+				int amountRead = fileFs.gcount();
+				SHA256 sha256;
+				sha256.init();
+				sha256.update((const unsigned char*)&buff[0], amountRead);
+				sha256.final((unsigned char*)hashFromFile.data());
+				
+				if (amountRead != 1024)
+				{
+					if (blockIndex != blockhashes.size()-1)
+					{
+						printf("The file cannot be fully read. errorFix() is confused and cannot continue.\r\n");
+						return EFR_FAILED_TO_FIX;
+					}
+				}
+				
+				if (blockhashes[blockIndex] != hashFromFile)
+				{
+					// We found the mischief!
+					
+					if (DEBUGGING) printf("Mischief found!\r\n");
+					
+					if (tryFixBlockUsingHash(&buff[0], amountRead, blockhashes[blockIndex]) == true)
+					{
+						// YAY :)
+						// Write the correct block to the file
+						
+						if (DEBUGGING) printf("Mischief fixed :D\r\n");
+						
+						fileFs.seekg(-amountRead, std::ios_base::cur);
+						fileFs.write(&buff[0], amountRead);
+					}
+					else
+					{
+						return EFR_FAILED_TO_FIX;
+					}
+				}
+			}
+			
+			fileFs.close();
+			treeIfs.close();
+			goto checkFixed;
+		}
+		
+		fileFs.close();
+		treeIfs.close();
+	}
+	else if (storedTree.errorCheck() && *storedTree.hash != _file)
+	{
+		// Catastrophic failure, this should never happen,
+		// unless the user manually overwrite this file's tree with another file's tree.
+		return EFR_FAILED_TO_FIX;
+	}
+	
+	treeIfs.close();
 	goto checkFixed;
 }

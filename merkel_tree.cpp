@@ -2,6 +2,7 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 #include "sha256.h"
 #include "util.h"
@@ -119,17 +120,21 @@ void MerkelNode::serialize(std::ostream& _dest)
 MerkelNode::MerkelNode(std::istream& _serializedTree)
 {
 	_serializedTree.read((char*)&this->level, 1);
+	if (_serializedTree.gcount() != 1) throw Error_MerkelTreeFileCorrupted();
+	
 	_serializedTree.read((char*)&this->dataSize, 8);
+	if (_serializedTree.gcount() != 8) throw Error_MerkelTreeFileCorrupted();
 	
 	this->hash = ZERO_HASH;
 	_serializedTree.read(this->hash->data(), 32);
+	if (_serializedTree.gcount() != 32) throw Error_MerkelTreeFileCorrupted();
 	
 	if (!_serializedTree.eof())
 	{
 		unsigned char nextLevel = (unsigned char)_serializedTree.peek();
 		if (nextLevel < level)
 		{
-			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
+			if (nextLevel+1 != level) throw Error_MerkelTreeFileCorrupted();
 			this->child0 = std::make_shared<MerkelNode>(_serializedTree);
 			//this->child0->parent = this->shared_from_this();
 		}
@@ -137,7 +142,7 @@ MerkelNode::MerkelNode(std::istream& _serializedTree)
 		nextLevel = (unsigned char)_serializedTree.peek();
 		if (nextLevel < level)
 		{
-			if (nextLevel+1 != level) exitWithError("Merkel tree file is corrupted");
+			if (nextLevel+1 != level) throw Error_MerkelTreeFileCorrupted();
 			this->child1 = std::make_shared<MerkelNode>(_serializedTree);
 			//this->child1->parent = this->shared_from_this();
 		}
@@ -252,7 +257,7 @@ bool MerkelNode::equals(MerkelNode& _other)
 	return true;
 }
 
-bool MerkelNode::errorCheck()
+bool MerkelNode::errorCheck(bool _isRightMostNode)
 {
 	if (this->child0 == nullptr && this->child1 != nullptr) return false;
 	if ((this->child0 == nullptr && this->child1 == nullptr) ^ (this->level == 0)) return false;
@@ -260,13 +265,13 @@ bool MerkelNode::errorCheck()
 	{
 		if (this->child0->level != this->level - 1) return false;
 		//if (this->child0->parent.get() != this) return false;
-		if (!this->child0->errorCheck()) return false;
+		if (!this->child0->errorCheck(_isRightMostNode && this->child1 == nullptr)) return false;
 	}
 	if (this->child1 != nullptr)
 	{
 		if (this->child1->level != this->level - 1) return false;
 		//if (this->child1->parent.get() != this) return false;
-		if (!this->child1->errorCheck()) return false;
+		if (!this->child1->errorCheck(_isRightMostNode)) return false;
 	}
 	if (this->level != 0)
 	{
@@ -284,6 +289,13 @@ bool MerkelNode::errorCheck()
 		}
 		if (this->hash != recomputedHash) return false;
 	}
+	if (this->level == 0)
+	{
+		if (this->dataSize != 1024)
+		{
+			if (!_isRightMostNode) return false;
+		}
+	}
 	return true;
 }
 
@@ -295,25 +307,47 @@ bool MerkelTree::errorCheck()
 	return true;
 }
 
-std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path)
+std::shared_ptr<MerkelTree> generateMerkelTreeFromFilePath(std::string _path, long maxBytesToRead)
 {
 	std::shared_ptr<MerkelTree> merkelTree = std::make_shared<MerkelTree>(true);
-	unsigned long fileSize = std::filesystem::file_size(_path);
+	if (maxBytesToRead == -1) maxBytesToRead = std::filesystem::file_size(_path);
 	unsigned long bytesRead = 0;
 	
-	if (DEBUGGING) std::cout << "fileSize=" << fileSize << " _path=" << _path << "\r\n";
+	if (DEBUGGING) std::cout << "maxBytesToRead=" << maxBytesToRead << " _path=" << _path << "\r\n";
 	std::ifstream file(_path, std::ios_base::binary);
 	char buff[1024];
-	while (bytesRead < fileSize)
+	while (bytesRead < maxBytesToRead)
 	{
 		int amountToRead;
-		if (bytesRead + 1024 <= fileSize) amountToRead = 1024;
-		else amountToRead = fileSize - bytesRead;
+		if (bytesRead + 1024 <= maxBytesToRead) amountToRead = 1024;
+		else amountToRead = maxBytesToRead - bytesRead;
 		readExactly(file, &buff[0], amountToRead);
 		merkelTree->addData(&buff[0], amountToRead);
 		bytesRead += amountToRead;
 	}
 	file.close();
+	if (bytesRead != maxBytesToRead) exitWithError("Failed to read entire file in generateMerkelTreeFromFilePath");
 	merkelTree->finalize();
 	return merkelTree;
+}
+
+void MerkelNode::listBlockHashes(std::vector<std::array<char, 32>>& _out) const
+{
+	if (this->level == 0)
+	{
+		_out.push_back(*this->hash);
+	}
+	else
+	{
+		if (this->child0 == nullptr) exitWithError("wtf983498324");
+		else this->child0->listBlockHashes(_out);
+		if (this->child1 != nullptr) this->child1->listBlockHashes(_out);
+	}
+}
+
+std::vector<std::array<char, 32>> MerkelTree::listBlockHashes() const
+{
+	std::vector<std::array<char, 32>> ret;
+	this->rootMerkelNode->listBlockHashes(ret);
+	return ret;
 }
