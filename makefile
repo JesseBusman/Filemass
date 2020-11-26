@@ -17,12 +17,8 @@ build/filemass: $(OBJFILES)
 -include $(CDEPENDS)
 -include $(CPPDEPENDS)
 
-CC = gcc
-CXX = gcc
+build/%.c.o: %.c makefile
+	$(CC) $(CFLAGS) -c -o $@ $(word 1, $<)
 
-build/%.c.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-build/%.cpp.o: %.cpp
-	$(CPPC) $(CPPFLAGS) -c -o $@ $<
-
+build/%.cpp.o: %.cpp makefile
+	$(CPPC) $(CPPFLAGS) -c -o $@ $(word 1, $<)
