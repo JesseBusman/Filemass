@@ -27,6 +27,7 @@ private:
 	std::string config_file;
 	
 	std::string hashToTreePath(const std::array<char, 32>& _hash);
+	std::string hashToParityPath(const std::array<char, 32>& _hash);
 
 public:
 	Repository(std::string _path);

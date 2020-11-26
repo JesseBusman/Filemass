@@ -77,6 +77,11 @@ std::string Repository::hashToTreePath(const std::array<char, 32>& _hash)
 	return this->hashToFilePath(_hash) + ".fmtree";
 }
 
+std::string Repository::hashToParityPath(const std::array<char, 32>& _hash)
+{
+	return this->hashToFilePath(_hash) + ".fmparity";
+}
+
 std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 {
 	if (!std::filesystem::exists(_path)) exitWithError("File does not exist: " + _path);
@@ -87,11 +92,13 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 	
 	std::string destFilePath = this->hashToFilePath(hash);
 	
+	long sourceFileSize = std::filesystem::file_size(_path);
+	
 	bool wasNew = false;
 	
 	if (std::filesystem::exists(destFilePath))
 	{
-		if (std::filesystem::file_size(destFilePath) == std::filesystem::file_size(_path))
+		if (std::filesystem::file_size(destFilePath) == sourceFileSize)
 		{
 			if (DEBUGGING) std::cout << "File " << _path << " already exists at " << destFilePath << "\r\n";
 			wasNew = false;
@@ -112,6 +119,55 @@ std::pair<std::array<char, 32>, bool> Repository::add(const std::string& _path)
 			exitWithError("Failed to copy file " + _path + " to " + destFilePath);
 		}
 	}
+	
+	// Generate parity file
+	std::string destParityPath = this->hashToParityPath(hash);
+	
+	if (!std::filesystem::exists(destParityPath))
+	{
+		std::ifstream ifs(destFilePath);
+		long parityBlockSize = 1024;
+		long parityBlockCount = (sourceFileSize + 1) / 1024 / 16;
+		char (*parityBlocks)[1024] = new char[parityBlockCount][1024];
+		for (long i=0; i<parityBlockCount; i++)
+		for (int j=0; j<1024; j++)
+			parityBlocks[i][j] = 0x00;
+		//memset(parity, 0x00, parityBlockCount * 1024);
+		char buff[1024];
+		long totalRead = 0;
+		long blockIndex = 0;
+		while (!ifs.eof())
+		{
+			ifs.read(buff, 1024);
+			int amountRead = ifs.gcount();
+			
+			for (int i=0; i<amountRead; i++)
+			{
+				parityBlocks[blockIndex][i] ^= buff[i];
+			}
+			
+			totalRead += amountRead;
+			
+			blockIndex = (blockIndex+1) % parityBlockCount;
+		}
+		
+		ifs.close();
+		
+		if (totalRead != sourceFileSize)
+		{
+			exitWithError("Failed to generate parity blocks");
+		}
+		
+		std::ofstream parityOfs(destParityPath);
+		parityOfs.write((char*)&parityBlockCount, 8);
+		parityOfs.write((char*)&parityBlockSize, 8);
+		for (long i=0; i<parityBlockCount; i++)
+		{
+			parityOfs.write(&parityBlocks[i][0], 1024);
+		}
+		parityOfs.close();
+	}
+	
 	
 	std::string destTreePath = this->hashToTreePath(hash);
 	
